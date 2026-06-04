@@ -45,3 +45,19 @@ screenshots/
 
 # Personal claude memory (already under user dir, not project)
 .claude/
+
+# PM strategy + capstone meta docs (kept local, not in repo)
+AUDIT_RE_Marketing_Agent.md
+CAPSTONE_CONTEXT_HANDOFF.md
+Concept_Note_RE_Marketing_Agent.docx
+Implementation_Plan_RE_Marketing_Agent.md
+PRD_RE_Marketing_Conversion_Intelligence_Agent.md
+REBUILD_WORKFLOW_Lead_Agent.md
+SPEC_Autonomous_Activation_Loop_v1.1.md
+india_proptech_market_research_report.md
+build/CAPSTONE_SUBMISSION.md
+build/PRODUCT_SUMMARY.md
+build/RECORDING_SCRIPT.md
+build/RECORDING_SCRIPT_FULL_FLOW.md
+build/SUBMISSION_DAY_CHECKLIST.md
+build/docs/COMMERCIAL_THESIS.md
