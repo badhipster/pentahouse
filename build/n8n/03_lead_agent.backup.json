@@ -1,0 +1,1383 @@
+{
+  "name": "Lead Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-new-lead",
+      "name": "Webhook: New Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "notes": "POST /webhook/new-lead. Body: { name, phone, email, source, inquiry_text, interested_project?, campaign_id? }. Optional: language, raw_intent_fields."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "leads",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.body.name }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.body.phone }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.body.email }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.body.source }}"
+            },
+            {
+              "fieldId": "inquiry_text",
+              "fieldValue": "={{ $json.body.inquiry_text }}"
+            },
+            {
+              "fieldId": "interested_project",
+              "fieldValue": "={{ $json.body.interested_project }}"
+            },
+            {
+              "fieldId": "campaign_id",
+              "fieldValue": "={{ $json.body.campaign_id }}"
+            },
+            {
+              "fieldId": "language",
+              "fieldValue": "={{ $json.body.language || 'en' }}"
+            },
+            {
+              "fieldId": "stage",
+              "fieldValue": "New"
+            },
+            {
+              "fieldId": "purpose",
+              "fieldValue": "={{ $json.body.purpose }}"
+            },
+            {
+              "fieldId": "budget_lakhs",
+              "fieldValue": "={{ $json.body.budget_lakhs }}"
+            },
+            {
+              "fieldId": "preferred_config",
+              "fieldValue": "={{ $json.body.preferred_config }}"
+            },
+            {
+              "fieldId": "preferred_city",
+              "fieldValue": "={{ $json.body.preferred_city }}"
+            },
+            {
+              "fieldId": "preferred_locality",
+              "fieldValue": "={{ $json.body.preferred_locality }}"
+            },
+            {
+              "fieldId": "purchase_timeline",
+              "fieldValue": "={{ $json.body.purchase_timeline }}"
+            },
+            {
+              "fieldId": "loan_status",
+              "fieldValue": "={{ $json.body.loan_status }}"
+            },
+            {
+              "fieldId": "family_size",
+              "fieldValue": "={{ $json.body.family_size }}"
+            },
+            {
+              "fieldId": "decision_makers",
+              "fieldValue": "={{ $json.body.decision_makers }}"
+            },
+            {
+              "fieldId": "intent_fields_count",
+              "fieldValue": "={{ [$json.body.purpose, $json.body.budget_lakhs, $json.body.preferred_config, $json.body.preferred_city, $json.body.preferred_locality, $json.body.purchase_timeline, $json.body.loan_status, $json.body.family_size, $json.body.decision_makers].filter(v => v !== null && v !== undefined && v !== '').length }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-lead",
+      "name": "Supabase: Insert Lead",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "Creates the lead row. Returns full row including UUID."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2 RAG: build Gemini text-embedding-004 request body for the buyer's inquiry.\n// We embed the combined text the buyer would actually say (inquiry_text + their structured intent\n// signals) so the resulting vector matches against property embeddings semantically, not just on\n// city/budget arithmetic. The embedding is then fed into the match_properties_for_inquiry RPC.\nconst lead = $('Supabase: Insert Lead').first().json;\nconst webhookBody = $('Webhook: New Lead').first().json.body || {};\n\nconst inquiryText = lead.inquiry_text || webhookBody.inquiry_text || '';\nconst budget      = lead.budget_lakhs || webhookBody.budget_lakhs || null;\nconst city        = lead.preferred_city || webhookBody.preferred_city || null;\nconst config      = lead.preferred_config || webhookBody.preferred_config || null;\nconst timeline    = lead.purchase_timeline || webhookBody.purchase_timeline || null;\n\nconst combinedText = [\n  inquiryText,\n  config   ? `Configuration: ${config}.` : '',\n  city     ? `City: ${city}.` : '',\n  budget   ? `Budget around ${budget} lakhs.` : '',\n  timeline ? `Timeline: ${timeline}.` : ''\n].filter(Boolean).join(' ');\n\nconst embeddingBody = JSON.stringify({\n  model:    'models/gemini-embedding-001',\n  content:  { parts: [{ text: combinedText }] },\n  taskType: 'RETRIEVAL_QUERY',\n  outputDimensionality: 768\n});\n\nreturn [{ json: { combinedText, embeddingBody, preferredCity: city, leadBudget: budget } }];"
+      },
+      "id": "sb-get-properties",
+      "name": "Code: Build Embedding Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        200
+      ],
+      "notes": "v2 RAG step 1: builds the Gemini embedding request body for the buyer's combined inquiry. Same node id as the legacy Get Properties so connection maps remain valid after re-import."
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.embeddingBody }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "rag-embed",
+      "name": "Gemini: Embed Inquiry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        200
+      ],
+      "notes": "v2 RAG step 2: Gemini text-embedding-004 returns a 768-dim vector for the buyer's combined inquiry. RETRIEVAL_QUERY task type asymmetrically pairs with the RETRIEVAL_DOCUMENT embeddings stored in property_embeddings (best practice from Gemini docs)."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/match_properties_for_inquiry",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $credentials.supabaseApi.serviceRole }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.supabaseApi.serviceRole }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ inquiry_embedding: $('Gemini: Embed Inquiry').first().json.embedding.values, preferred_city: $('Code: Build Embedding Body').first().json.preferredCity, budget_lakhs: $('Code: Build Embedding Body').first().json.leadBudget, match_count: 6 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "rag-match",
+      "name": "HTTP: RAG Match Properties",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "v2 RAG step 3: calls the match_properties_for_inquiry RPC from migration 0009. Returns the top-6 properties by cosine similarity to the inquiry embedding, with soft boosts for matching city + budget band. This is the actual retrieval step in retrieval-augmented generation."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/lead_feedback_aggregate",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $credentials.supabaseApi.serviceRole }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.supabaseApi.serviceRole }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "sb-feedback",
+      "name": "Supabase: Get Historical Feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        400
+      ],
+      "notes": "Calls a Postgres function lead_feedback_aggregate() that returns by_source and top_objections_by_project for the last 90 days. If the function does not exist yet, this node returns an empty object and the workflow proceeds without historical context. Create the function via supabase/migrations/0002_feedback_function.sql (see docs/INSTALL.md)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v3 RAG (audit item 3.3 replaced with proper semantic retrieval): consumes the\n// top-K properties from the match_properties_for_inquiry RPC (Gemini-embedded\n// inquiry \u2192 pgvector cosine match). The naive city + budget JS filter is now a\n// fallback only \u2014 only fires if the RPC returned 0 rows (embedding service down,\n// or property_embeddings table not yet populated).\nconst leadRow      = $('Supabase: Insert Lead').first().json;\n// Tolerant feedback read: if Get Historical Feedback errored or wasn't executed,\n// fall back to an empty feedback object instead of crashing the workflow.\nlet feedbackRaw;\ntry { feedbackRaw = $('Supabase: Get Historical Feedback').first().json; }\ncatch (e) { feedbackRaw = null; }\n// v3.3 RAG read \u2014 defensive against both n8n HTTP behaviors:\n//   a) keeps the JSON array as one item's .json (current behavior in your n8n version)\n//   b) splits array elements into separate items\n// Either way we end up with ragRaw = [{prop1}, {prop2}, ..., {prop6}]\nconst _ragItems = $('HTTP: RAG Match Properties').all();\nlet ragRaw;\nif (_ragItems.length === 1 && Array.isArray(_ragItems[0].json)) {\n  ragRaw = _ragItems[0].json;\n} else {\n  ragRaw = _ragItems.map(i => i.json).filter(j => j && typeof j === 'object' && j.id);\n}\nconst embedCtx     = $('Code: Build Embedding Body').first().json;\nconst t0 = Date.now();\nconst traceId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; const v = c==='x' ? r : (r&0x3|0x8); return v.toString(16); }));\n\nconst preferredCity = embedCtx?.preferredCity || null;\nconst leadBudget    = Number(embedCtx?.leadBudget || 0);\n\n// RAG path (preferred): use the RPC results directly.\nlet properties = [];\nlet retrievalMode = 'rag';\nlet retrievalDiagnostics = {};\n\nif (Array.isArray(ragRaw) && ragRaw.length > 0) {\n  properties = ragRaw.map(r => ({\n    id: r.id,\n    project_name: r.project_name,\n    developer: r.developer,\n    city: r.city,\n    locality: r.locality,\n    config: r.config,\n    price_min_lakhs: r.price_min_lakhs,\n    price_max_lakhs: r.price_max_lakhs,\n    possession_date: r.possession_date,\n    highlights: r.highlights || [],\n    amenities: r.amenities || [],\n    // RAG-only fields the scoring prompt can use:\n    rag_similarity: r.similarity,\n    rag_city_match: r.city_match,\n    rag_budget_overlap: r.budget_overlap\n  }));\n  retrievalDiagnostics = {\n    retrieved_count: properties.length,\n    top_similarity: properties[0]?.rag_similarity || null,\n    city_matches: properties.filter(p => p.rag_city_match).length,\n    budget_overlaps: properties.filter(p => p.rag_budget_overlap).length\n  };\n} else {\n  // Fallback (should rarely fire): RPC returned nothing \u2192 embedding service likely down\n  // OR property_embeddings is empty. Surface this in the diagnostics so it's visible.\n  retrievalMode = 'fallback_empty';\n  retrievalDiagnostics = { retrieved_count: 0, fallback_reason: 'rag_returned_empty' };\n}\n\nconst feedback = {\n  by_source: feedbackRaw?.by_source || [],\n  top_objections_by_project: feedbackRaw?.top_objections_by_project || []\n};\n\n// v3.1 (production hardening): Gemini Score Lead body with FORCED responseSchema.\n// responseSchema is the API-level guarantee that the output matches the structure.\n// Without it, responseMimeType only nudges Gemini to emit JSON-shaped text; with it,\n// Gemini's decoder enforces the shape. ~80% of our parse failures came from missing fields\n// or non-integer scores. This eliminates that class of bugs.\nconst systemText = \"You are the Lead Scoring Agent for an Indian residential real estate sales platform. Ground every claim in the provided LEAD DATA and AVAILABLE PROPERTIES (retrieved via semantic embedding similarity \u2014 pre-filtered to be relevant). Do not invent facts. If fewer than 2 intent fields are present, set confidence below 50. Budgets are in INR lakhs. recommended_action MUST be one of: 'Schedule site visit', 'Send brochure', 'Long-term nurture', 'Disqualify', 'Escalate to manager'.\";\nconst userText = 'LEAD DATA:\\n' + JSON.stringify(leadRow, null, 2) + '\\n\\nAVAILABLE PROPERTIES (RAG top-' + properties.length + '):\\n' + JSON.stringify(properties, null, 2) + '\\n\\nHISTORICAL FEEDBACK:\\n' + JSON.stringify(feedback, null, 2) + '\\n\\nScore this lead.';\n\n// Gemini-flavored JSON schema (uses uppercase type names, supports STRING enum)\nconst responseSchema = {\n  type: 'OBJECT',\n  properties: {\n    fit_score:       { type: 'INTEGER', description: '0-100, how well the lead matches the available properties' },\n    urgency_score:   { type: 'INTEGER', description: '0-100, how soon the buyer is likely to transact' },\n    overall_score:   { type: 'INTEGER', description: '0-100, weighted blend of fit + urgency' },\n    confidence:      { type: 'INTEGER', description: '0-100, how confident you are in the scoring' },\n    fit_reasons:     { type: 'ARRAY', items: { type: 'STRING' } },\n    urgency_reasons: { type: 'ARRAY', items: { type: 'STRING' } },\n    recommended_action: {\n      type: 'STRING',\n      enum: ['Schedule site visit', 'Send brochure', 'Long-term nurture', 'Disqualify', 'Escalate to manager']\n    },\n    matched_property_id:   { type: 'STRING', description: 'UUID of the best matching property from RAG results, or empty string' },\n    matched_property_name: { type: 'STRING', description: 'Project name of the best matching property, or empty string' }\n  },\n  required: ['fit_score','urgency_score','overall_score','confidence','fit_reasons','recommended_action']\n};\n\nconst geminiScoreBody = JSON.stringify({\n  systemInstruction: { parts: [{ text: systemText }] },\n  contents: [{ role: 'user', parts: [{ text: userText }] }],\n  generationConfig: {\n    temperature: 0.2,\n    responseMimeType: 'application/json',\n    responseSchema\n  }\n});\n\nreturn [{\n  json: {\n    lead: leadRow,\n    properties,\n    feedback,\n    traceId,\n    promptStartedAt: t0,\n    promptVersion: 'lead_scoring.v3.3_rag_defensive',\n    retrievalMode,\n    retrievalDiagnostics,\n    geminiScoreBody,\n    filterDiagnostics: {\n      preferred_city: preferredCity,\n      lead_budget_lakhs: leadBudget || null,\n      retrieved_count: properties.length,\n      retrieval_mode: retrievalMode\n    }\n  }\n}];"
+      },
+      "id": "code-build-context",
+      "name": "Code: Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ],
+      "notes": "Merges lead, properties (filtered), and feedback into a single object for the Gemini prompt."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v3.1 production hardening: Gemini Score with retry + model fallback chain.\n// Pattern: Flash twice (transient errors) \u2192 Flash-Lite (cheaper retry) \u2192 Pro (slow but most reliable).\n// Every attempt uses the same responseSchema-enforced body so Gemini's decoder validates structure.\n// Returns { ok, score, modelUsed, attemptsUsed, latencyMs, lastError } so observability is preserved.\nconst body = $('Code: Build Context').first().json.geminiScoreBody;\nconst apiKey = $env.GEMINI_API_KEY;\nconst startedAt = Date.now();\n\nconst chain = [\n  { model: 'gemini-2.5-flash',      label: 'flash-1' },\n  { model: 'gemini-2.5-flash',      label: 'flash-2' },\n  { model: 'gemini-2.5-flash-lite', label: 'flash-lite' },\n  { model: 'gemini-2.5-pro',        label: 'pro-fallback' }\n];\n\nconst required = ['fit_score','urgency_score','overall_score','confidence','fit_reasons','recommended_action'];\n\nasync function tryOnce(attempt) {\n  const url = `https://generativelanguage.googleapis.com/v1beta/models/${attempt.model}:generateContent?key=${apiKey}`;\n  const resp = await this.helpers.httpRequest({\n    method: 'POST',\n    url,\n    headers: { 'Content-Type': 'application/json' },\n    body,\n    json: true,\n    returnFullResponse: false,\n    timeout: 25000\n  });\n  const text = resp?.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (!text) throw new Error('empty_response_text');\n  const parsed = typeof text === 'string' ? JSON.parse(text) : text;\n  for (const f of required) {\n    if (parsed[f] === undefined || parsed[f] === null || parsed[f] === '') {\n      throw new Error('missing_required_field:' + f);\n    }\n  }\n  return parsed;\n}\n\nlet lastError = null;\nlet result = null;\nlet usedModel = null;\nlet attemptCount = 0;\nconst attemptLog = [];\n\nfor (const attempt of chain) {\n  attemptCount++;\n  const t0 = Date.now();\n  try {\n    result = await tryOnce.call(this, attempt);\n    usedModel = attempt.model;\n    attemptLog.push({ label: attempt.label, model: attempt.model, ms: Date.now() - t0, status: 'ok' });\n    break;\n  } catch (e) {\n    lastError = `${attempt.label}: ${e.message}`;\n    attemptLog.push({ label: attempt.label, model: attempt.model, ms: Date.now() - t0, status: 'fail', error: e.message });\n    // Small backoff before next attempt (skip on last)\n    if (attemptCount < chain.length) {\n      await new Promise(r => setTimeout(r, 400 * attemptCount));\n    }\n  }\n}\n\nconst latencyMs = Date.now() - startedAt;\n\nif (!result) {\n  // All attempts failed \u2014 return a structured low-confidence fallback so the workflow still completes,\n  // and the lead correctly routes to manager escalation instead of silently disappearing.\n  return [{\n    json: {\n      ok: false,\n      score: {\n        fit_score: 0,\n        urgency_score: 0,\n        overall_score: 0,\n        confidence: 0,\n        fit_reasons: ['All Gemini attempts failed. Routing to manager. Last error: ' + lastError],\n        urgency_reasons: [],\n        recommended_action: 'Escalate to manager',\n        matched_property_id: null,\n        matched_property_name: null\n      },\n      modelUsed: null,\n      attemptsUsed: attemptCount,\n      attemptLog,\n      latencyMs,\n      lastError\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ok: true,\n    score: result,\n    modelUsed: usedModel,\n    attemptsUsed: attemptCount,\n    attemptLog,\n    latencyMs,\n    lastError: null\n  }\n}];"
+      },
+      "id": "gemini-score",
+      "name": "Code: Score Lead (Retry+Fallback)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ],
+      "notes": "v3.1 production hardening (replaces the single-shot Gemini: Score Lead HTTP call). Implements Gemini retry + model fallback chain: Flash twice \u2192 Flash-Lite \u2192 Pro. Each attempt enforces the responseSchema built in Code: Build Context. Returns a structured ALWAYS \u2014 even on total failure, returns a low-confidence routed-to-manager score so the workflow never blackholes a lead. Tracks model_used + attemptLog for observability."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v3.1 production hardening: reads from the new Code: Score Lead (Retry+Fallback) output.\n// That node ALWAYS returns a structured payload \u2014 even on total Gemini failure it returns\n// a confidence-0 routed-to-manager fallback. So we just clamp + validate + prep for Supabase.\nconst leadRow = $('Supabase: Insert Lead').first().json;\nconst scoreNode = $('Code: Score Lead (Retry+Fallback)').first().json;\nconst score = scoreNode.score;\n\nconst clamp = (v) => Math.max(0, Math.min(100, parseInt(v, 10) || 0));\nconst allowedActions = ['Schedule site visit','Send brochure','Long-term nurture','Disqualify','Escalate to manager'];\nconst toUuidOrNull = (v) => (typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) ? v : null;\n\nconst out = {\n  lead_id: leadRow.id,\n  lead_name: leadRow.name,\n  lead_phone: leadRow.phone,\n  lead_budget_lakhs: leadRow.budget_lakhs,\n  fit_score: clamp(score.fit_score),\n  urgency_score: clamp(score.urgency_score),\n  overall_score: clamp(score.overall_score || Math.round(clamp(score.fit_score) * 0.55 + clamp(score.urgency_score) * 0.45)),\n  confidence: clamp(score.confidence),\n  fit_reasons: Array.isArray(score.fit_reasons) ? score.fit_reasons : [],\n  urgency_reasons: Array.isArray(score.urgency_reasons) ? score.urgency_reasons : [],\n  recommended_action: allowedActions.includes(score.recommended_action) ? score.recommended_action : 'Escalate to manager',\n  matched_property_id: toUuidOrNull(score.matched_property_id),\n  matched_property_name: (typeof score.matched_property_name === 'string' && score.matched_property_name.length > 0) ? score.matched_property_name : null,\n  raw_response: score,\n  prompt_version: $('Code: Build Context').first().json.promptVersion || 'unknown',\n  // v3.1 observability \u2014 these surface in the LEAD_SCORED event payload + dashboard activity feed\n  scoring_ok: scoreNode.ok,\n  model_used: scoreNode.modelUsed,\n  attempts_used: scoreNode.attemptsUsed,\n  scoring_latency_ms: scoreNode.latencyMs,\n  attempt_log: scoreNode.attemptLog,\n  last_error: scoreNode.lastError\n};\n\nreturn [{ json: out }];"
+      },
+      "id": "code-parse-score",
+      "name": "Code: Parse and Validate Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "notes": "Parses Gemini JSON, clamps numeric ranges, enforces the closed vocabulary for recommended_action. Falls back to escalation if Gemini misbehaves."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "lead_scores",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $json.lead_id }}"
+            },
+            {
+              "fieldId": "fit_score",
+              "fieldValue": "={{ $json.fit_score }}"
+            },
+            {
+              "fieldId": "urgency_score",
+              "fieldValue": "={{ $json.urgency_score }}"
+            },
+            {
+              "fieldId": "overall_score",
+              "fieldValue": "={{ $json.overall_score }}"
+            },
+            {
+              "fieldId": "confidence",
+              "fieldValue": "={{ $json.confidence }}"
+            },
+            {
+              "fieldId": "fit_reasons",
+              "fieldValue": "={{ $json.fit_reasons }}"
+            },
+            {
+              "fieldId": "urgency_reasons",
+              "fieldValue": "={{ $json.urgency_reasons }}"
+            },
+            {
+              "fieldId": "recommended_action",
+              "fieldValue": "={{ $json.recommended_action }}"
+            },
+            {
+              "fieldId": "matched_property_id",
+              "fieldValue": "={{ $json.matched_property_id }}"
+            },
+            {
+              "fieldId": "scored_by",
+              "fieldValue": "gemini-2.5-flash"
+            },
+            {
+              "fieldId": "prompt_version",
+              "fieldValue": "={{ $json.prompt_version }}"
+            },
+            {
+              "fieldId": "raw_response",
+              "fieldValue": "={{ JSON.stringify($json.raw_response) }}"
+            },
+            {
+              "fieldId": "data_sufficiency",
+              "fieldValue": "={{ $('Code: Intent Completeness').first().json.data_sufficiency }}"
+            },
+            {
+              "fieldId": "critical_missing_count",
+              "fieldValue": "={{ $('Code: Intent Completeness').first().json.critical_missing_count }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-score",
+      "name": "Supabase: Insert Lead Score",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Code: Parse and Validate Score').first().json.confidence }}",
+              "rightValue": 50,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            },
+            {
+              "leftValue": "={{ $('Code: Parse and Validate Score').first().json.lead_budget_lakhs }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "if-escalate",
+      "name": "IF: Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        300
+      ],
+      "notes": "Escalate if confidence < 50 OR budget > 2Cr (200 lakhs). human_request escalation is handled in intent extraction, not here."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "escalations",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "reason_code",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_budget_lakhs > 200 ? 'vip_budget' : 'low_confidence' }}"
+            },
+            {
+              "fieldId": "reason_text",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_budget_lakhs > 200 ? ('Budget ' + ($('Code: Parse and Validate Score').first().json.lead_budget_lakhs/100).toFixed(1) + 'Cr triggers >2Cr VIP threshold') : ('Confidence ' + $('Code: Parse and Validate Score').first().json.confidence + '% < 50% threshold') }}"
+            },
+            {
+              "fieldId": "recommended_action",
+              "fieldValue": "Manager review within 30 min"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "open"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-escalation",
+      "name": "Supabase: Insert Escalation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_name",
+              "fieldValue": "ESCALATION_TRIGGERED"
+            },
+            {
+              "fieldId": "source_agent",
+              "fieldValue": "Lead Agent"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "trace_id",
+              "fieldValue": "={{ $('Code: Build Context').first().json.traceId }}"
+            },
+            {
+              "fieldId": "confidence",
+              "fieldValue": "={{ ($('Code: Parse and Validate Score').first().json.confidence || 0) / 100 }}"
+            },
+            {
+              "fieldId": "model_used",
+              "fieldValue": "gemini-2.5-flash"
+            },
+            {
+              "fieldId": "prompt_version",
+              "fieldValue": "={{ $('Code: Build Context').first().json.promptVersion }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Code: Parse and Validate Score').first().json.lead_id, reason: $('Code: Parse and Validate Score').first().json.lead_budget_lakhs > 200 ? 'vip_budget' : 'low_confidence', overall_score: $('Code: Parse and Validate Score').first().json.overall_score, filter_diagnostics: $('Code: Build Context').first().json.filterDiagnostics }) }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-event-escalation",
+      "name": "Supabase: Emit ESCALATION_TRIGGERED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_name",
+              "fieldValue": "LEAD_SCORED"
+            },
+            {
+              "fieldId": "source_agent",
+              "fieldValue": "Lead Agent"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "trace_id",
+              "fieldValue": "={{ $('Code: Build Context').first().json.traceId }}"
+            },
+            {
+              "fieldId": "confidence",
+              "fieldValue": "={{ ($('Code: Parse and Validate Score').first().json.confidence || 0) / 100 }}"
+            },
+            {
+              "fieldId": "model_used",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.model_used }}"
+            },
+            {
+              "fieldId": "latency_ms",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.scoring_latency_ms }}"
+            },
+            {
+              "fieldId": "prompt_version",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.prompt_version }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Code: Parse and Validate Score').first().json.lead_id, overall_score: $('Code: Parse and Validate Score').first().json.overall_score, recommended_action: $('Code: Parse and Validate Score').first().json.recommended_action, scoring_ok: $('Code: Parse and Validate Score').first().json.scoring_ok, attempts_used: $('Code: Parse and Validate Score').first().json.attempts_used, attempt_log: $('Code: Parse and Validate Score').first().json.attempt_log, filter_diagnostics: $('Code: Build Context').first().json.filterDiagnostics }) }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-event-scored",
+      "name": "Supabase: Emit LEAD_SCORED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "agent_name",
+              "fieldValue": "Lead Agent"
+            },
+            {
+              "fieldId": "action",
+              "fieldValue": "scored_lead"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "input_summary",
+              "fieldValue": "={{ 'Source: ' + ($('Supabase: Insert Lead').first().json.source || 'unknown') + ', text: ' + (($('Supabase: Insert Lead').first().json.inquiry_text || '').slice(0, 80)) }}"
+            },
+            {
+              "fieldId": "output_summary",
+              "fieldValue": "={{ 'fit=' + $('Code: Parse and Validate Score').first().json.fit_score + ' urgency=' + $('Code: Parse and Validate Score').first().json.urgency_score + ' action=' + $('Code: Parse and Validate Score').first().json.recommended_action }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ok"
+            }
+          ]
+        }
+      },
+      "id": "sb-log",
+      "name": "Supabase: Write Agent Log",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, lead_id: $('Code: Parse and Validate Score').first().json.lead_id, overall_score: $('Code: Parse and Validate Score').first().json.overall_score, recommended_action: $('Code: Parse and Validate Score').first().json.recommended_action, escalated: $('Code: Parse and Validate Score').first().json.confidence < 50 || ($('Code: Parse and Validate Score').first().json.lead_budget_lakhs || 0) > 200 } }}",
+        "options": {}
+      },
+      "id": "webhook-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.ESPO_API_URL ? $env.ESPO_API_URL + '/api/v1/Lead' : 'http://0.0.0.0:1/skip-espo' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.ESPO_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((function(){ const lead = $('Supabase: Insert Lead').first().json; const score = $('Code: Parse and Validate Score').first().json; const nm = String(lead.name || '').trim().split(/\\s+/); const firstName = nm[0] || 'Unknown'; const lastName = nm.length > 1 ? nm.slice(1).join(' ') : '(Pentahouse)'; const sourceMap = { 'Meta Ad': 'Web Site', 'Google Ad': 'Web Site', '99acres': 'Web Site', 'Housing.com': 'Web Site', 'MagicBricks': 'Web Site', 'CP Referral': 'Partner', 'Walk-in': 'Other', 'WhatsApp': 'Other' }; const espoSource = sourceMap[lead.source] || 'Other'; const desc = [ 'Pentahouse score: ' + score.overall_score + '/100 (fit ' + score.fit_score + ', urgency ' + score.urgency_score + ', confidence ' + score.confidence + '%)', 'Recommended action: ' + score.recommended_action, 'Matched property: ' + (score.matched_property_name || 'none'), 'Inquiry text: ' + (lead.inquiry_text || '(none)'), 'Source attribution: ' + (lead.source || 'unknown'), 'Pentahouse lead id: ' + lead.id ].join('\\n'); return { firstName: firstName, lastName: lastName, emailAddress: lead.email || null, phoneNumber: lead.phone || null, source: espoSource, status: score.overall_score >= 70 ? 'In Process' : (score.overall_score >= 40 ? 'Assigned' : 'New'), description: desc, opportunityAmount: lead.budget_lakhs ? lead.budget_lakhs * 100000 : null, opportunityAmountCurrency: 'INR' }; })()) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-espo-push",
+      "name": "HTTP: Push to EspoCRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        500
+      ],
+      "notes": "Pushes the qualified lead to EspoCRM via /api/v1/Lead. Authenticated via X-Api-Key header (an EspoCRM API user). Maps our schema to EspoCRM's standard Lead fields. Falls back to no-op if ESPO_URL or ESPO_API_KEY env vars unset (neverError=true on response)."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "agent_name",
+              "fieldValue": "Lead Agent"
+            },
+            {
+              "fieldId": "action",
+              "fieldValue": "espo_pushed"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Parse and Validate Score').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "input_summary",
+              "fieldValue": "={{ 'EspoCRM push for lead ' + $('Supabase: Insert Lead').first().json.name + ' (score ' + $('Code: Parse and Validate Score').first().json.overall_score + ')' }}"
+            },
+            {
+              "fieldId": "output_summary",
+              "fieldValue": "={{ ($('HTTP: Push to EspoCRM').first().json.id) ? ('EspoCRM lead id: ' + $('HTTP: Push to EspoCRM').first().json.id) : ('EspoCRM push failed or no id returned: ' + JSON.stringify($('HTTP: Push to EspoCRM').first().json).slice(0, 200)) }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ ($('HTTP: Push to EspoCRM').first().json.id) ? 'ok' : 'warning' }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-log-espo",
+      "name": "Supabase: Log EspoCRM Push",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Rix47Gr7idhmUFnapS4yD-I5IvQMTzyn2pHlBljF0Ow",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_at": "={{ $now.toISO() }}",
+            "lead_id": "={{ $('Supabase: Insert Lead').first().json.id }}",
+            "name": "={{ $('Supabase: Insert Lead').first().json.name || '' }}",
+            "phone": "={{ $('Supabase: Insert Lead').first().json.phone || '' }}",
+            "email": "={{ $('Supabase: Insert Lead').first().json.email || '' }}",
+            "source": "={{ $('Supabase: Insert Lead').first().json.source || '' }}",
+            "city": "={{ $('Supabase: Insert Lead').first().json.preferred_city || '' }}",
+            "locality": "={{ $('Supabase: Insert Lead').first().json.preferred_locality || '' }}",
+            "budget_lakhs": "={{ $('Supabase: Insert Lead').first().json.budget_lakhs || '' }}",
+            "preferred_config": "={{ $('Supabase: Insert Lead').first().json.preferred_config || '' }}",
+            "purpose": "={{ $('Supabase: Insert Lead').first().json.purpose || '' }}",
+            "timeline": "={{ $('Supabase: Insert Lead').first().json.purchase_timeline || '' }}",
+            "loan_status": "={{ $('Supabase: Insert Lead').first().json.loan_status || '' }}",
+            "intent_fields_count": "={{ $('Supabase: Insert Lead').first().json.intent_fields_count || 0 }}",
+            "lead_score": "={{ $('Code: Parse and Validate Score').first().json.overall_score }}",
+            "heat": "={{ $('Code: Parse and Validate Score').first().json.overall_score >= 80 ? 'hot' : ($('Code: Parse and Validate Score').first().json.overall_score >= 60 ? 'warm' : 'cool') }}",
+            "stage": "new",
+            "agent_version": "={{ $('Code: Parse and Validate Score').first().json.prompt_version || 'unknown' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_id",
+              "displayName": "lead_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "locality",
+              "displayName": "locality",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget_lakhs",
+              "displayName": "budget_lakhs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preferred_config",
+              "displayName": "preferred_config",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "purpose",
+              "displayName": "purpose",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timeline",
+              "displayName": "timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "loan_status",
+              "displayName": "loan_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "intent_fields_count",
+              "displayName": "intent_fields_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lead_score",
+              "displayName": "lead_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "heat",
+              "displayName": "heat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stage",
+              "displayName": "stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_version",
+              "displayName": "agent_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "gsheet-append-lead",
+      "name": "Google Sheets: Append Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1960,
+        580
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Appends every new scored lead to the 'Leads' tab in the Sales Ops sheet. Sales head sees every lead with score + heat + intent fields without opening the dashboard. Sheet ID hardcoded; rebind Google Sheets credential after import."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/draft-message",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  lead_id: $('Code: Intent Completeness').first().json.lead_id,\n  desired_template: ($('Code: Intent Completeness').first().json.recommended_action === 'Schedule site visit' ? 'site_visit_invite' : 'brochure_share'),\n  trigger_event: 'lead_scored_hot',\n  trace_id: $('Code: Build Context').first().json.traceId,\n  missing_fields: []\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "http-trigger-nurture",
+      "name": "HTTP: Trigger Nurture Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        540
+      ],
+      "notes": "v1.1 Activation Loop P0-1. neverError true so a failed Nurture call doesn't black-hole the lead. trace_id propagated from Lead Agent entry."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v1.1 spec rev. 3 \u2014 Intent Completeness verdict.\n// Implements the three-way branch precondition: classifies the lead into\n// `sufficient` or `insufficient` based on hard gates + score signals + field count.\n//\n// Hard gate (locked decision 1): purpose missing => insufficient regardless.\n// Score gates: confidence < 50 OR fit_score < 40 => insufficient.\n// Count gate: critical_missing_count > 2 => insufficient.\n//\n// Field ask-priority order (locked): purpose -> budget -> timeline -> config -> locality -> loan\nconst score = $('Code: Parse and Validate Score').first().json;\nconst lead = $('Supabase: Insert Lead').first().json;\nconst ctx = $('Code: Build Context').first().json;\n\nconst FIT_FLOOR = 40;\nconst CONFIDENCE_FLOOR = 50;\nconst MAX_CRITICAL_MISSING = 2;\n\n// Priority-ordered list of intent fields the buyer should reveal.\nconst PRIORITY_FIELDS = [\n  { name: 'purpose',            value: lead.purpose },\n  { name: 'budget_lakhs',       value: lead.budget_lakhs },\n  { name: 'purchase_timeline',  value: lead.purchase_timeline },\n  { name: 'preferred_config',   value: lead.preferred_config },\n  { name: 'preferred_locality', value: lead.preferred_locality || lead.preferred_city },\n  { name: 'loan_status',        value: lead.loan_status },\n];\n\nconst missing_fields = PRIORITY_FIELDS\n  .filter(f => f.value === null || f.value === undefined || f.value === '' || f.value === 'not_sure')\n  .map(f => f.name);\n\nconst purpose_missing = missing_fields.includes('purpose');\nconst critical_missing_count = missing_fields.filter(n => n !== 'purpose').length;\n\n// Step A.1: No-inventory guard. If RAG returned 0 properties, we cannot\n// fabricate a match. Mark and force insufficient (still ask for purpose if missing).\nconst no_inventory_match = (ctx.properties && ctx.properties.length === 0);\n\nlet data_sufficiency;\nif (purpose_missing) {\n  data_sufficiency = 'insufficient';\n} else if (no_inventory_match) {\n  data_sufficiency = 'insufficient';\n} else if (score.confidence < CONFIDENCE_FLOOR || score.fit_score < FIT_FLOOR) {\n  data_sufficiency = 'insufficient';\n} else if (critical_missing_count > MAX_CRITICAL_MISSING) {\n  data_sufficiency = 'insufficient';\n} else {\n  data_sufficiency = 'sufficient';\n}\n\n\n// Spec Step A.1 fix: when Disqualify/Escalate is driven by RAG miss + missing\n// intent (not by a real bad-fit signal), reroute to gap-fill so we capture\n// the buyer's purpose for future inventory.\nlet final_action = score.recommended_action;\nconst reroute_to_gap_fill = (\n  (no_inventory_match || purpose_missing || critical_missing_count > 0) &&\n  (final_action === 'Disqualify' || final_action === 'Escalate to manager')\n);\nif (reroute_to_gap_fill) {\n  final_action = 'Long-term nurture';\n}\n\n// Pass everything through plus the new fields. Downstream Insert Lead Score\n// reads from this node now.\nreturn [{\n  json: {\n    ...score,\n    recommended_action: final_action,\n    data_sufficiency,\n    missing_fields,\n    critical_missing_count,\n    no_inventory_match,\n    // Force the matched_property_id to null if we have no inventory \u2014 never fabricate\n    matched_property_id: no_inventory_match ? null : score.matched_property_id,\n    matched_property_name: no_inventory_match ? null : score.matched_property_name\n  }\n}];\n"
+      },
+      "id": "code-intent-completeness",
+      "name": "Code: Intent Completeness",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        300
+      ],
+      "notes": "v1.1 spec rev. 3 P0-1 Step A + A.1. Computes data_sufficiency, missing_fields, critical_missing_count, no_inventory_match. Forces matched_property_id null when no inventory exists."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "activation",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "act-sufficient",
+                    "leftValue": "={{ $('Code: Intent Completeness').first().json.data_sufficiency }}",
+                    "rightValue": "sufficient",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "act-score",
+                    "leftValue": "={{ $('Code: Intent Completeness').first().json.overall_score }}",
+                    "rightValue": 70,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  },
+                  {
+                    "id": "act-action",
+                    "leftValue": "={{ ['Schedule site visit','Send brochure'].includes($('Code: Intent Completeness').first().json.recommended_action) }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "gap_fill",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "gap-insufficient",
+                    "leftValue": "={{ $('Code: Intent Completeness').first().json.data_sufficiency }}",
+                    "rightValue": "insufficient",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "id": "gap-turns",
+                    "leftValue": "={{ $('Supabase: Insert Lead').first().json.gap_fill_turn_count || 0 }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-activation",
+      "name": "Switch: Activation Branch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1960,
+        620
+      ],
+      "notes": "v1.1 spec rev. 3 P0-1 Step B. Three outputs: 0=activation (sufficient+hot+visit-worthy), 1=gap_fill (insufficient+not-disqualify+under-cap), 2=no_message (fallback)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/draft-message",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  lead_id: $('Code: Intent Completeness').first().json.lead_id,\n  desired_template: 'intent_gap_fill',\n  trigger_event: 'intent_gap',\n  trace_id: $('Code: Build Context').first().json.traceId,\n  missing_fields: $('Code: Intent Completeness').first().json.missing_fields,\n  ask_limit: 2\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "http-trigger-gap-fill",
+      "name": "HTTP: Trigger Gap-Fill Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        700
+      ],
+      "notes": "v1.1 spec rev. 3 P0-1 Step B output 1. Fires Nurture Agent with intent_gap_fill template. neverError=true so Lead Agent never blocks on a failed handoff."
+    }
+  ],
+  "connections": {
+    "Webhook: New Lead": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Lead": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Embedding Body",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Get Historical Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Embedding Body": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Embed Inquiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Embed Inquiry": {
+      "main": [
+        [
+          {
+            "node": "HTTP: RAG Match Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: RAG Match Properties": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Historical Feedback": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Context": {
+      "main": [
+        [
+          {
+            "node": "Code: Score Lead (Retry+Fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Score Lead (Retry+Fallback)": {
+      "main": [
+        [
+          {
+            "node": "Code: Parse and Validate Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Parse and Validate Score": {
+      "main": [
+        [
+          {
+            "node": "Code: Intent Completeness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Lead Score": {
+      "main": [
+        [
+          {
+            "node": "IF: Escalate?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP: Push to EspoCRM",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets: Append Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch: Activation Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Push to EspoCRM": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log EspoCRM Push",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Escalate?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Emit LEAD_SCORED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Escalation": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Emit ESCALATION_TRIGGERED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Emit ESCALATION_TRIGGERED": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Write Agent Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Emit LEAD_SCORED": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Write Agent Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Write Agent Log": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Intent Completeness": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Activation Branch": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Trigger Nurture Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP: Trigger Gap-Fill Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "capstone"
+    },
+    {
+      "name": "lead-agent"
+    }
+  ]
+}

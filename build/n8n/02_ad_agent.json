@@ -1,0 +1,863 @@
+{
+  "name": "Ad Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-ads",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-ads",
+      "name": "Webhook: Generate Ads",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "notes": "POST /webhook/generate-ads. Body: { property_id }. Called by the dashboard's 'Generate ads' button OR auto-triggered when LISTING_SYNCED fires (set up via a second n8n workflow that polls agent_events, or by chaining from the Listing Agent's webhook responder)."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "properties",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.property_id }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-prop",
+      "name": "Supabase: Get Property",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "campaigns",
+        "returnAll": false,
+        "limit": 6,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "property_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook: Generate Ads').first().json.body.property_id }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-prev-campaigns",
+      "name": "Supabase: Get Previous Campaigns",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "v2 (audit item 2.1): fetches the most recent 6 campaigns for this property so the Ad Agent can vary angles rather than repeat them. Returns empty array on first-ever generation; Code: Build Ad Body handles both cases."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2 (audit items 2.1, 2.5, Day 5): trace_id, prev_campaigns injection, lower temperature.\n// Prompt source: build/prompts/ad_drafting.md version ad_drafting.v2.\nconst property = $('Supabase: Get Property').first().json;\nconst prevCampaignsRaw = $('Supabase: Get Previous Campaigns').all().map(i => i.json);\nconst t0 = Date.now();\nconst traceId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; const v = c==='x' ? r : (r&0x3|0x8); return v.toString(16); }));\n\n// Compact prev campaigns into something the model can absorb without blowing context.\nconst prevCampaigns = prevCampaignsRaw\n  .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))\n  .slice(0, 3)\n  .map(c => ({ platform: c.platform, ad_copy: c.ad_copy, cpl_inr: c.cpl_inr, leads_generated: c.leads_generated }));\n\nconst hasHistory = prevCampaigns.length > 0;\n\nconst systemPrompt = \"You are the Ad Agent for an Indian residential real estate sales platform. Given a property record AND optionally the most recent past campaigns for that property, draft platform-specific ad creatives that a marketing lead can review and publish.\\n\\nGround every claim ONLY in the provided property; do not invent prices, possession dates, or amenities. Use Indian conventions (lakhs/Cr; BHK; sqft).\\n\\nWhen PREVIOUS_CAMPAIGNS is provided: do NOT repeat headlines or hooks verbatim. Vary the angle (e.g., if past Meta lead with possession date, this draft leads with locality; if past lead with price, this leads with amenity stack). Acknowledge what already worked (high leads_generated) by keeping its tone, and avoid what underperformed.\\n\\nPlatform constraints:\\n- meta: 1-2 punchy sentences, conversational, mobile-first, no emoji (only one at the end if natural). Up to 180 chars.\\n- google: a 30-char headline AND a 90-char description, concatenated as 'HEADLINE | DESCRIPTION'. Factual, intent-matched.\\n- portal: a 60-char headline AND a 150-char description, concatenated as 'HEADLINE | DESCRIPTION'. Specs-heavy, what-you-get focused.\\n\\nFor each platform also produce target_audience: a single sentence describing age band, household income, geo, and intent signals appropriate to that platform and that property's price tier.\\n\\nNEVER use these banned phrases (RERA Act \u00a711 advertising-claim risk): 'guaranteed return', 'guaranteed appreciation', 'risk-free', 'assured returns', '100% safe', any specific percentage return promise.\\n\\nOutput a single JSON object with exactly these keys: { meta: { ad_copy, target_audience }, google: { ad_copy, target_audience }, portal: { ad_copy, target_audience }, novelty_note: 'one short sentence on what you varied vs past campaigns, or `first campaign for this property` if none' }. No prose, no markdown fences.\";\n\nconst userPrompt = 'PROPERTY:\\n' + JSON.stringify({\n  project_name: property.project_name,\n  developer: property.developer,\n  city: property.city,\n  locality: property.locality,\n  config: property.config,\n  price_min_lakhs: property.price_min_lakhs,\n  price_max_lakhs: property.price_max_lakhs,\n  possession_date: property.possession_date,\n  highlights: property.highlights || [],\n  amenities: (property.amenities || []).slice(0, 6)\n}, null, 2) + (hasHistory\n  ? ('\\n\\nPREVIOUS_CAMPAIGNS (most recent first):\\n' + JSON.stringify(prevCampaigns, null, 2))\n  : '\\n\\nPREVIOUS_CAMPAIGNS: none (this is the first campaign for this property).')\n+ '\\n\\nDraft the 3 platform creatives. Return ONLY the JSON object.';\n\nconst geminiBody = JSON.stringify({\n  systemInstruction: { parts: [{ text: systemPrompt }] },\n  contents: [{ role: 'user', parts: [{ text: userPrompt }] }],\n  generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }\n});\n\nreturn [{ json: { property, geminiBody, traceId, promptStartedAt: t0, promptVersion: 'ad_drafting.v2', prevCampaignCount: prevCampaigns.length } }];"
+      },
+      "id": "code-build-ads",
+      "name": "Code: Build Ad Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "gemini-ads",
+      "name": "Gemini: Draft Ad Copy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "notes": "EXPRESSION MODE on jsonBody. Single call returns all 3 platform creatives."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2 (audit item 2.5, Day 5): deterministic seed + trace_id + observability fields.\n// Same property + same date returns the same simulated metrics across re-runs (demo reproducibility).\nconst ctx = $('Code: Build Ad Body').first().json;\nconst latencyMs = Math.max(0, Date.now() - (ctx.promptStartedAt || Date.now()));\nconst traceId = ctx.traceId;\nconst promptVersion = ctx.promptVersion;\n\nconst resp = $('Gemini: Draft Ad Copy').first().json;\nconst property = $('Supabase: Get Property').first().json;\n\nlet parsed = null;\ntry {\n  const text = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  parsed = JSON.parse(text);\n} catch (e) {\n  return [{ json: { ok: false, error: 'Gemini parse failure: ' + e.message, traceId, latencyMs, promptVersion } }];\n}\n\nif (!parsed?.meta || !parsed?.google || !parsed?.portal) {\n  return [{ json: { ok: false, error: 'Missing platform copies in Gemini output', got: parsed, traceId, latencyMs, promptVersion } }];\n}\n\n// v2: deterministic PRNG seeded by (property_id + date + platform). Same inputs \u2192 same metrics.\n// Mulberry32 PRNG: tiny, deterministic, decent distribution.\nfunction seedFromString(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }\nfunction mulberry32(seed) { return function() { let t = (seed += 0x6D2B79F5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }\nconst today = new Date().toISOString().slice(0, 10);\n\nconst midPrice = (Number(property.price_min_lakhs || 100) + Number(property.price_max_lakhs || 200)) / 2;\nconst tierMultiplier = midPrice < 100 ? 0.6 : midPrice < 250 ? 1.0 : 1.8;\n\nfunction simulate(platform, budgetBase, cplLow, cplHigh) {\n  const rnd = mulberry32(seedFromString(property.id + '|' + today + '|' + platform));\n  const budget = Math.round(budgetBase * tierMultiplier * (0.85 + rnd() * 0.3));\n  const cpl = Math.round(cplLow + rnd() * (cplHigh - cplLow));\n  const leads = Math.max(20, Math.round(budget / cpl));\n  const clicks = Math.round(leads * (8 + rnd() * 6));\n  const impressions = Math.round(clicks * (35 + rnd() * 25));\n  return { budget, cpl, leads, clicks, impressions };\n}\n\nconst now = new Date().toISOString();\nconst campaignBase = `${property.project_name} ${now.slice(0, 10)}`;\n\nconst meta = simulate('Meta', 220000, 500, 1500);\nconst google = simulate('Google', 160000, 700, 1800);\nconst portal = simulate('Portal', 90000, 400, 900);\n\nreturn [{\n  json: {\n    ok: true,\n    traceId,\n    promptVersion,\n    latencyMs,\n    modelUsed: 'gemini-2.5-flash',\n    novelty_note: parsed.novelty_note || null,\n    property_id: property.id,\n    project_name: property.project_name,\n    meta: {\n      campaign_name: `${campaignBase} | Meta`,\n      ad_copy: parsed.meta.ad_copy,\n      target_audience: parsed.meta.target_audience,\n      ...meta\n    },\n    google: {\n      campaign_name: `${campaignBase} | Google`,\n      ad_copy: parsed.google.ad_copy,\n      target_audience: parsed.google.target_audience,\n      ...google\n    },\n    portal: {\n      campaign_name: `${campaignBase} | Portal`,\n      ad_copy: parsed.portal.ad_copy,\n      target_audience: parsed.portal.target_audience,\n      ...portal\n    }\n  }\n}];"
+      },
+      "id": "code-parse-ads",
+      "name": "Code: Parse & Simulate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-ok",
+      "name": "IF: Gemini OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "campaigns",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.property_id }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "Meta"
+            },
+            {
+              "fieldId": "campaign_name",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.campaign_name }}"
+            },
+            {
+              "fieldId": "ad_copy",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.ad_copy }}"
+            },
+            {
+              "fieldId": "target_audience",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.target_audience }}"
+            },
+            {
+              "fieldId": "budget_inr",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.budget }}"
+            },
+            {
+              "fieldId": "impressions",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.impressions }}"
+            },
+            {
+              "fieldId": "clicks",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.clicks }}"
+            },
+            {
+              "fieldId": "leads_generated",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.leads }}"
+            },
+            {
+              "fieldId": "cpl_inr",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.meta.cpl }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "Active"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-meta",
+      "name": "Supabase: Insert Meta",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "campaigns",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.property_id }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "Google"
+            },
+            {
+              "fieldId": "campaign_name",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.campaign_name }}"
+            },
+            {
+              "fieldId": "ad_copy",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.ad_copy }}"
+            },
+            {
+              "fieldId": "target_audience",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.target_audience }}"
+            },
+            {
+              "fieldId": "budget_inr",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.budget }}"
+            },
+            {
+              "fieldId": "impressions",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.impressions }}"
+            },
+            {
+              "fieldId": "clicks",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.clicks }}"
+            },
+            {
+              "fieldId": "leads_generated",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.leads }}"
+            },
+            {
+              "fieldId": "cpl_inr",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.google.cpl }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "Active"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-google",
+      "name": "Supabase: Insert Google",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "campaigns",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.property_id }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "Portal"
+            },
+            {
+              "fieldId": "campaign_name",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.campaign_name }}"
+            },
+            {
+              "fieldId": "ad_copy",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.ad_copy }}"
+            },
+            {
+              "fieldId": "target_audience",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.target_audience }}"
+            },
+            {
+              "fieldId": "budget_inr",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.budget }}"
+            },
+            {
+              "fieldId": "impressions",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.impressions }}"
+            },
+            {
+              "fieldId": "clicks",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.clicks }}"
+            },
+            {
+              "fieldId": "leads_generated",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.leads }}"
+            },
+            {
+              "fieldId": "cpl_inr",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.portal.cpl }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "Active"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-portal",
+      "name": "Supabase: Insert Portal",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_name",
+              "fieldValue": "CAMPAIGN_LIVE"
+            },
+            {
+              "fieldId": "source_agent",
+              "fieldValue": "Ad Agent"
+            },
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.property_id }}"
+            },
+            {
+              "fieldId": "trace_id",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.traceId }}"
+            },
+            {
+              "fieldId": "model_used",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.modelUsed }}"
+            },
+            {
+              "fieldId": "latency_ms",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.latencyMs }}"
+            },
+            {
+              "fieldId": "prompt_version",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.promptVersion }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ property_id: $('Code: Parse & Simulate').first().json.property_id, project_name: $('Code: Parse & Simulate').first().json.project_name, platforms: ['Meta','Google','Portal'], total_budget_inr: $('Code: Parse & Simulate').first().json.meta.budget + $('Code: Parse & Simulate').first().json.google.budget + $('Code: Parse & Simulate').first().json.portal.budget, prev_campaign_count: $('Code: Build Ad Body').first().json.prevCampaignCount, novelty_note: $('Code: Parse & Simulate').first().json.novelty_note }) }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-event-campaign",
+      "name": "Supabase: Emit CAMPAIGN_LIVE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "agent_name",
+              "fieldValue": "Ad Agent"
+            },
+            {
+              "fieldId": "action",
+              "fieldValue": "simulated_campaign"
+            },
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('Code: Parse & Simulate').first().json.property_id }}"
+            },
+            {
+              "fieldId": "input_summary",
+              "fieldValue": "={{ 'Property: ' + $('Code: Parse & Simulate').first().json.project_name }}"
+            },
+            {
+              "fieldId": "output_summary",
+              "fieldValue": "={{ 'Drafted Meta, Google, Portal copy. Simulated total spend \u20b9' + (($('Code: Parse & Simulate').first().json.meta.budget + $('Code: Parse & Simulate').first().json.google.budget + $('Code: Parse & Simulate').first().json.portal.budget)/1000).toFixed(0) + 'K, blended CPL \u20b9' + Math.round(($('Code: Parse & Simulate').first().json.meta.cpl + $('Code: Parse & Simulate').first().json.google.cpl + $('Code: Parse & Simulate').first().json.portal.cpl)/3) }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ok"
+            }
+          ]
+        }
+      },
+      "id": "sb-log-ads",
+      "name": "Supabase: Log Ad Generation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, property_id: $('Code: Parse & Simulate').first().json.property_id, project_name: $('Code: Parse & Simulate').first().json.project_name, platforms: { meta: { ad_copy: $('Code: Parse & Simulate').first().json.meta.ad_copy, cpl: $('Code: Parse & Simulate').first().json.meta.cpl }, google: { ad_copy: $('Code: Parse & Simulate').first().json.google.ad_copy, cpl: $('Code: Parse & Simulate').first().json.google.cpl }, portal: { ad_copy: $('Code: Parse & Simulate').first().json.portal.ad_copy, cpl: $('Code: Parse & Simulate').first().json.portal.cpl } } } }}",
+        "options": {}
+      },
+      "id": "wh-respond-ok",
+      "name": "Respond: Campaigns Live",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 422,
+        "responseBody": "={{ { ok: false, error: $('Code: Parse & Simulate').first().json.error || 'unknown' } }}",
+        "options": {}
+      },
+      "id": "wh-respond-fail",
+      "name": "Respond: Generation Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build 3 sheet rows \u2014 one per channel (Meta, Google, Portal).\n// Pulls campaign_id from each inserted row + creative fields from Parse & Simulate output.\n\nconst property = $('Supabase: Get Property').first().json;\nconst parsed = $('Code: Parse & Simulate').first().json;\n\nconst meta = $('Supabase: Insert Meta').first().json;\nconst google = $('Supabase: Insert Google').first().json;\nconst portal = $('Supabase: Insert Portal').first().json;\n\nconst now = new Date().toISOString();\nconst propertyName = property.project_name || property.name || '';\nconst agentVersion = parsed.prompt_version || parsed.promptVersion || 'ad_drafting.v2';\n\n// Extract per-channel creative from parsed output. Pattern: parsed.channels.{meta,google,portal}.{headline, primary_text, cta, budget_inr}\nconst c = parsed.channels || {};\nconst m = c.meta || {};\nconst g = c.google || {};\nconst p = c.portal || {};\n\nconst rows = [\n  {\n    json: {\n      created_at: now,\n      campaign_id: meta.id || '',\n      property_id: property.id || '',\n      property_name: propertyName,\n      channel: 'meta',\n      status: meta.status || 'live',\n      budget_inr: m.budget_inr || meta.budget_inr || '',\n      headline: m.headline || meta.headline || '',\n      primary_text: m.primary_text || meta.primary_text || '',\n      cta: m.cta || meta.cta || '',\n      agent_version: agentVersion\n    }\n  },\n  {\n    json: {\n      created_at: now,\n      campaign_id: google.id || '',\n      property_id: property.id || '',\n      property_name: propertyName,\n      channel: 'google',\n      status: google.status || 'live',\n      budget_inr: g.budget_inr || google.budget_inr || '',\n      headline: g.headline || google.headline || '',\n      primary_text: g.primary_text || google.description || '',\n      cta: g.cta || google.cta || '',\n      agent_version: agentVersion\n    }\n  },\n  {\n    json: {\n      created_at: now,\n      campaign_id: portal.id || '',\n      property_id: property.id || '',\n      property_name: propertyName,\n      channel: 'portal',\n      status: portal.status || 'live',\n      budget_inr: p.budget_inr || portal.budget_inr || '',\n      headline: p.headline || portal.headline || '',\n      primary_text: p.primary_text || portal.description || '',\n      cta: p.cta || portal.cta || '',\n      agent_version: agentVersion\n    }\n  }\n];\n\nreturn rows;\n"
+      },
+      "id": "code-build-sheet-rows",
+      "name": "Code: Build Sheet Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2680,
+        420
+      ],
+      "notes": "Splits the campaign generation into 3 rows (Meta/Google/Portal) so the sales head sees per-channel headline, budget, CTA in the Campaigns sheet."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Rix47Gr7idhmUFnapS4yD-I5IvQMTzyn2pHlBljF0Ow",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Campaigns",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_at": "={{ $json.created_at }}",
+            "campaign_id": "={{ $json.campaign_id }}",
+            "property_id": "={{ $json.property_id }}",
+            "property_name": "={{ $json.property_name }}",
+            "channel": "={{ $json.channel }}",
+            "status": "={{ $json.status }}",
+            "budget_inr": "={{ $json.budget_inr }}",
+            "headline": "={{ $json.headline }}",
+            "primary_text": "={{ $json.primary_text }}",
+            "cta": "={{ $json.cta }}",
+            "agent_version": "={{ $json.agent_version }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "campaign_id",
+              "displayName": "campaign_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "property_id",
+              "displayName": "property_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "property_name",
+              "displayName": "property_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget_inr",
+              "displayName": "budget_inr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "primary_text",
+              "displayName": "primary_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cta",
+              "displayName": "cta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_version",
+              "displayName": "agent_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "gsheet-append-campaign",
+      "name": "Google Sheets: Append Campaign",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2960,
+        420
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Appends every generated campaign to the 'Campaigns' tab \u2014 one row per channel (Meta + Google + Portal = 3 rows per Ad Agent run). Sales head sees creative + budget + status at a glance."
+    }
+  ],
+  "connections": {
+    "Webhook: Generate Ads": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Get Property",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Property": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Get Previous Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Previous Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Ad Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Ad Body": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft Ad Copy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft Ad Copy": {
+      "main": [
+        [
+          {
+            "node": "Code: Parse & Simulate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Parse & Simulate": {
+      "main": [
+        [
+          {
+            "node": "IF: Gemini OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Gemini OK": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Meta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Generation Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Meta": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Google",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Google": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Portal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Portal": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Emit CAMPAIGN_LIVE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Emit CAMPAIGN_LIVE": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log Ad Generation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code: Build Sheet Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log Ad Generation": {
+      "main": [
+        [
+          {
+            "node": "Respond: Campaigns Live",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Sheet Rows": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Append Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "capstone"
+    },
+    {
+      "name": "ad-agent"
+    }
+  ]
+}

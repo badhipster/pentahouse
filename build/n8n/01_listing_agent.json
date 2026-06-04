@@ -1,0 +1,257 @@
+{
+  "name": "Listing Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sync-listing",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-listing",
+      "name": "Webhook: New Listing",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "notes": "POST /webhook/sync-listing. Body: { raw_text: string }. Called by the dashboard's 'Add property' sheet OR by a CSV processor."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2: trace_id generation + confidence-aware prompt (audit items 1.3, 1.6, Day 5).\n// Prompt source of truth: build/prompts/listing_extraction.md (version listing_extraction.v2).\nconst rawText = $('Webhook: New Listing').first().json.body.raw_text || '';\nconst t0 = Date.now();\nconst traceId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; const v = c==='x' ? r : (r&0x3|0x8); return v.toString(16); }));\n\nconst systemPrompt = \"You are the Listing Agent for an Indian residential real estate sales platform. Read unstructured project information and extract structured fields. Output a single JSON object with the exact keys: project_name (string), developer (string), city (must be one of: 'Delhi NCR', 'Mumbai', 'Pune', 'Bangalore'), locality (string), config (string like '2BHK, 3BHK'), price_min_lakhs (number, in INR lakhs), price_max_lakhs (number, in INR lakhs), carpet_area_sqft (string like '650-1100'), rera_number (string or null if not stated), possession_date (string like 'Dec 2027'), amenities (array of strings), highlights (array of strings), confidence (object with per-field 0-100 scores AND an 'overall' key), review_needed (boolean; true when overall confidence < 70 OR any required field confidence < 60), review_reason (short string explaining what is uncertain; required when review_needed is true).\\n\\nIndian conventions: 1 Cr = 100 lakhs; 1.5Cr = 150 lakhs; budget like '1.6Cr' = 160 lakhs.\\n\\nIf a field is genuinely missing from the input, use null (do NOT invent). Do NOT fabricate RERA numbers. Never set review_needed=false just because asked. No prose, no markdown fences.\";\n\nconst geminiBody = JSON.stringify({\n  systemInstruction: { parts: [{ text: systemPrompt }] },\n  contents: [{ role: 'user', parts: [{ text: 'PROJECT INFO:\\n' + rawText + '\\n\\nExtract the structured fields. Return ONLY the JSON object.' }] }],\n  generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }\n});\n\nreturn [{ json: { rawText, geminiBody, traceId, promptStartedAt: t0, promptVersion: 'listing_extraction.v2' } }];"
+      },
+      "id": "code-build-extract",
+      "name": "Code: Build Extraction Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "key", "value": "={{ $env.GEMINI_API_KEY }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "gemini-extract",
+      "name": "Gemini: Extract Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "notes": "EXPRESSION MODE on jsonBody (fx). The Code node above built a complete JSON string in geminiBody; this node sends it as-is."
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2: parses confidence + review_needed, computes latency, carries trace_id.\nconst ctx = $('Code: Build Extraction Body').first().json;\nconst latencyMs = Math.max(0, Date.now() - (ctx.promptStartedAt || Date.now()));\nconst traceId = ctx.traceId;\nconst promptVersion = ctx.promptVersion;\n\nconst resp = $('Gemini: Extract Fields').first().json;\nlet extracted;\ntry {\n  const text = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  extracted = JSON.parse(text);\n} catch (e) {\n  return [{ json: { ok: false, error: 'Gemini parse failure: ' + e.message, extracted: null, traceId, latencyMs, promptVersion } }];\n}\n\nconst allowedCities = ['Delhi NCR','Mumbai','Pune','Bangalore'];\nconst missing = [];\nif (!extracted.project_name) missing.push('project_name');\nif (!extracted.city || !allowedCities.includes(extracted.city)) missing.push('city');\nif (missing.length > 0) {\n  return [{ json: { ok: false, error: 'Missing or invalid fields: ' + missing.join(', '), extracted, traceId, latencyMs, promptVersion } }];\n}\n\nconst priceMin = extracted.price_min_lakhs != null ? Number(extracted.price_min_lakhs) : null;\nconst priceMax = extracted.price_max_lakhs != null ? Number(extracted.price_max_lakhs) : null;\nconst amenities = Array.isArray(extracted.amenities) ? extracted.amenities : [];\nconst highlights = Array.isArray(extracted.highlights) ? extracted.highlights : [];\n\n// v2: confidence — Gemini returns 0-100 ints; clamp + derive overall if not provided.\nconst confidenceRaw = (extracted.confidence && typeof extracted.confidence === 'object') ? extracted.confidence : {};\nconst overall = Number(confidenceRaw.overall);\nconst overallScore = (!isNaN(overall) && overall >= 0 && overall <= 100)\n  ? overall\n  : Math.round(Object.values(confidenceRaw).filter(v => typeof v === 'number').reduce((a,b)=>a+b, 0) / Math.max(1, Object.keys(confidenceRaw).length));\n\nconst reviewNeeded = !!extracted.review_needed || overallScore < 70;\n\nreturn [{\n  json: {\n    ok: true,\n    traceId,\n    promptVersion,\n    latencyMs,\n    modelUsed: 'gemini-2.5-flash',\n    confidence_overall: isNaN(overallScore) ? null : overallScore,\n    confidence_by_field: confidenceRaw,\n    review_needed: reviewNeeded,\n    review_reason: extracted.review_reason || (reviewNeeded ? 'Low confidence on one or more fields' : null),\n    // v2: if review_needed, save as Upcoming so it does not appear in live catalogue until verified.\n    status: reviewNeeded ? 'Upcoming' : 'Active',\n    project_name: String(extracted.project_name).trim(),\n    developer: extracted.developer ? String(extracted.developer).trim() : null,\n    city: extracted.city,\n    locality: extracted.locality || null,\n    config: extracted.config || null,\n    price_min_lakhs: !isNaN(priceMin) ? priceMin : null,\n    price_max_lakhs: !isNaN(priceMax) ? priceMax : null,\n    carpet_area_sqft: extracted.carpet_area_sqft || null,\n    rera_number: extracted.rera_number || null,\n    possession_date: extracted.possession_date || null,\n    amenities,\n    highlights,\n    extracted_raw: extracted\n  }\n}];"
+      },
+      "id": "code-parse-extract",
+      "name": "Code: Parse & Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-valid",
+      "name": "IF: Extraction OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/upsert_property",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "={{ $credentials.supabaseApi.serviceRole }}" },
+            { "name": "Authorization",  "value": "Bearer {{ $credentials.supabaseApi.serviceRole }}" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_project_name: $json.project_name, p_developer: $json.developer, p_city: $json.city, p_locality: $json.locality, p_config: $json.config, p_price_min_lakhs: $json.price_min_lakhs, p_price_max_lakhs: $json.price_max_lakhs, p_carpet_area_sqft: $json.carpet_area_sqft, p_rera_number: $json.rera_number, p_possession_date: $json.possession_date, p_amenities: $json.amenities, p_highlights: $json.highlights, p_status: $json.status }) }}",
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "sb-insert-property",
+      "name": "Supabase: Upsert Property (RPC)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      },
+      "notes": "v2 (audit items 1.1, 1.2): calls upsert_property RPC from migration 0006. The RPC returns an array with one row: { id, action_taken: 'insert' | 'update_by_rera' | 'update_by_fuzzy', matched_on }. Downstream nodes read property_id from $('Supabase: Upsert Property (RPC)').first().json[0].id"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "event_name",     "fieldValue": "LISTING_SYNCED" },
+            { "fieldId": "source_agent",   "fieldValue": "Listing Agent" },
+            { "fieldId": "property_id",    "fieldValue": "={{ $('Supabase: Upsert Property (RPC)').first().json[0].id }}" },
+            { "fieldId": "trace_id",       "fieldValue": "={{ $('Code: Parse & Validate').first().json.traceId }}" },
+            { "fieldId": "confidence",     "fieldValue": "={{ ($('Code: Parse & Validate').first().json.confidence_overall || 0) / 100 }}" },
+            { "fieldId": "model_used",     "fieldValue": "={{ $('Code: Parse & Validate').first().json.modelUsed }}" },
+            { "fieldId": "latency_ms",     "fieldValue": "={{ $('Code: Parse & Validate').first().json.latencyMs }}" },
+            { "fieldId": "prompt_version", "fieldValue": "={{ $('Code: Parse & Validate').first().json.promptVersion }}" },
+            { "fieldId": "payload",        "fieldValue": "={{ JSON.stringify({ property_id: $('Supabase: Upsert Property (RPC)').first().json[0].id, action_taken: $('Supabase: Upsert Property (RPC)').first().json[0].action_taken, matched_on: $('Supabase: Upsert Property (RPC)').first().json[0].matched_on, project_name: $('Code: Parse & Validate').first().json.project_name, city: $('Code: Parse & Validate').first().json.city, rera_present: !!$('Code: Parse & Validate').first().json.rera_number, review_needed: $('Code: Parse & Validate').first().json.review_needed, review_reason: $('Code: Parse & Validate').first().json.review_reason, confidence_by_field: $('Code: Parse & Validate').first().json.confidence_by_field, status: $('Code: Parse & Validate').first().json.status }) }}" }
+          ]
+        }
+      },
+      "id": "sb-event-listing",
+      "name": "Supabase: Emit LISTING_SYNCED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1680, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "agent_name",     "fieldValue": "Listing Agent" },
+            { "fieldId": "action",         "fieldValue": "={{ 'listing_' + $('Supabase: Upsert Property (RPC)').first().json[0].action_taken }}" },
+            { "fieldId": "property_id",    "fieldValue": "={{ $('Supabase: Upsert Property (RPC)').first().json[0].id }}" },
+            { "fieldId": "input_summary",  "fieldValue": "={{ 'Raw text: ' + (($('Webhook: New Listing').first().json.body.raw_text || '').slice(0, 120)) }}" },
+            { "fieldId": "output_summary", "fieldValue": "={{ $('Code: Parse & Validate').first().json.project_name + ' (' + $('Code: Parse & Validate').first().json.city + ') ' + $('Supabase: Upsert Property (RPC)').first().json[0].action_taken + '. Confidence ' + ($('Code: Parse & Validate').first().json.confidence_overall || '?') + '. RERA ' + ($('Code: Parse & Validate').first().json.rera_number || 'missing') + ($('Code: Parse & Validate').first().json.review_needed ? '. NEEDS HUMAN REVIEW' : '') }}" },
+            { "fieldId": "status",         "fieldValue": "={{ $('Code: Parse & Validate').first().json.review_needed ? 'warning' : ($('Code: Parse & Validate').first().json.rera_number ? 'ok' : 'warning') }}" }
+          ]
+        }
+      },
+      "id": "sb-log-success",
+      "name": "Supabase: Log Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1920, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "agent_name",     "fieldValue": "Listing Agent" },
+            { "fieldId": "action",         "fieldValue": "listing_failed" },
+            { "fieldId": "input_summary",  "fieldValue": "={{ 'Raw text: ' + (($('Webhook: New Listing').first().json.body.raw_text || '').slice(0, 120)) }}" },
+            { "fieldId": "output_summary", "fieldValue": "={{ $('Code: Parse & Validate').first().json.error }}" },
+            { "fieldId": "status",         "fieldValue": "error" },
+            { "fieldId": "error_message",  "fieldValue": "={{ $('Code: Parse & Validate').first().json.error }}" }
+          ]
+        }
+      },
+      "id": "sb-log-failure",
+      "name": "Supabase: Log Failure",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1440, 460],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, property_id: $('Supabase: Upsert Property (RPC)').first().json[0].id, action_taken: $('Supabase: Upsert Property (RPC)').first().json[0].action_taken, matched_on: $('Supabase: Upsert Property (RPC)').first().json[0].matched_on, project_name: $('Code: Parse & Validate').first().json.project_name, city: $('Code: Parse & Validate').first().json.city, rera_present: !!$('Code: Parse & Validate').first().json.rera_number, confidence_overall: $('Code: Parse & Validate').first().json.confidence_overall, review_needed: $('Code: Parse & Validate').first().json.review_needed, review_reason: $('Code: Parse & Validate').first().json.review_reason, trace_id: $('Code: Parse & Validate').first().json.traceId, fields_extracted: 13 } }}",
+        "options": {}
+      },
+      "id": "wh-respond-success",
+      "name": "Respond: Property Added",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2160, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 422,
+        "responseBody": "={{ { ok: false, error: $('Code: Parse & Validate').first().json.error, extracted: $('Code: Parse & Validate').first().json.extracted } }}",
+        "options": {}
+      },
+      "id": "wh-respond-failure",
+      "name": "Respond: Validation Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1680, 460]
+    }
+  ],
+  "connections": {
+    "Webhook: New Listing": {
+      "main": [[{ "node": "Code: Build Extraction Body", "type": "main", "index": 0 }]]
+    },
+    "Code: Build Extraction Body": {
+      "main": [[{ "node": "Gemini: Extract Fields", "type": "main", "index": 0 }]]
+    },
+    "Gemini: Extract Fields": {
+      "main": [[{ "node": "Code: Parse & Validate", "type": "main", "index": 0 }]]
+    },
+    "Code: Parse & Validate": {
+      "main": [[{ "node": "IF: Extraction OK", "type": "main", "index": 0 }]]
+    },
+    "IF: Extraction OK": {
+      "main": [
+        [{ "node": "Supabase: Upsert Property (RPC)", "type": "main", "index": 0 }],
+        [{ "node": "Supabase: Log Failure",           "type": "main", "index": 0 }]
+      ]
+    },
+    "Supabase: Upsert Property (RPC)": {
+      "main": [[{ "node": "Supabase: Emit LISTING_SYNCED", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Emit LISTING_SYNCED": {
+      "main": [[{ "node": "Supabase: Log Success", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Log Success": {
+      "main": [[{ "node": "Respond: Property Added", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Log Failure": {
+      "main": [[{ "node": "Respond: Validation Failed", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "capstone" }, { "name": "listing-agent" }]
+}

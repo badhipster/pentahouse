@@ -1,0 +1,143 @@
+{
+  "name": "Visit Reminders (v1.1 P1-1)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {"field": "minutes", "minutesInterval": 15}
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Schedule Trigger: Every 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 320]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/visits?status=in.(Scheduled,Confirmed)&scheduled_at=gte.{{ encodeURIComponent(new Date(Date.now() + 1.5*60*60*1000).toISOString()) }}&scheduled_at=lte.{{ encodeURIComponent(new Date(Date.now() + 24.5*60*60*1000).toISOString()) }}&select=id,lead_id,property_id,scheduled_at,reminder_24h_sent,reminder_2h_sent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {"response": {"responseFormat": "json"}}
+        }
+      },
+      "id": "http-fetch-visits",
+      "name": "HTTP: Fetch Upcoming Visits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 320],
+      "notes": "Pulls visits scheduled in the next 24.5h (covers both T-24h and T-2h windows). Per-row classification happens in the next Code node."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Classify each visit into 24h-window, 2h-window, or neither.\n// Only emit visits that need a reminder AND haven't been reminded yet.\nconst now = Date.now();\nconst HOURS = 60 * 60 * 1000;\n\nconst items = $input.first().json;\nconst rows = Array.isArray(items) ? items : (items.body || []);\n\nconst out = [];\nfor (const v of rows) {\n  const t = new Date(v.scheduled_at).getTime();\n  const diffH = (t - now) / HOURS;\n  let kind = null;\n  // 24h window: 22h to 26h ahead, only if 24h not yet sent\n  if (diffH >= 22 && diffH <= 26 && !v.reminder_24h_sent) kind = '24h';\n  // 2h window: 1.5h to 2.5h ahead, only if 2h not yet sent\n  else if (diffH >= 1.5 && diffH <= 2.5 && !v.reminder_2h_sent) kind = '2h';\n  if (kind) {\n    out.push({\n      json: {\n        visit_id: v.id,\n        lead_id: v.lead_id,\n        property_id: v.property_id,\n        scheduled_at: v.scheduled_at,\n        reminder_kind: kind,\n        traceId: crypto.randomUUID()\n      }\n    });\n  }\n}\nreturn out.length > 0 ? out : [{ json: { _empty: true } }];"
+      },
+      "id": "code-classify-reminders",
+      "name": "Code: Classify Reminder Windows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "not-empty",
+            "leftValue": "={{ $json._empty }}",
+            "rightValue": true,
+            "operator": {"type": "boolean", "operation": "notEquals"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-not-empty",
+      "name": "IF: Has Reminders?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/draft-message",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  lead_id: $json.lead_id,\n  desired_template: $json.reminder_kind === '24h' ? 'visit_reminder_24h' : 'visit_reminder_2h',\n  trigger_event: 'visit_reminder_' + $json.reminder_kind,\n  trace_id: $json.traceId,\n  visit_id: $json.visit_id\n}) }}",
+        "options": {
+          "response": {"response": {"neverError": true, "responseFormat": "json"}},
+          "timeout": 30000
+        }
+      },
+      "id": "http-draft-reminder",
+      "name": "HTTP: Draft Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/visits?id=eq.{{ $('Code: Classify Reminder Windows').item.json.visit_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Code: Classify Reminder Windows').item.json.reminder_kind === '24h' ? JSON.stringify({ reminder_24h_sent: true }) : JSON.stringify({ reminder_2h_sent: true }) }}",
+        "options": {
+          "response": {"response": {"neverError": true, "responseFormat": "json"}}
+        }
+      },
+      "id": "http-mark-reminded",
+      "name": "HTTP: Mark Reminded",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 240],
+      "notes": "Idempotency guard. If the scheduler fires twice in the window, the flag prevents a duplicate reminder. The HTTP node runs once per visit thanks to the IF + classified items."
+    },
+    {
+      "parameters": {
+        "tableId": "agent_logs",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "agent_name", "fieldValue": "System"},
+            {"fieldId": "action", "fieldValue": "={{ 'visit_reminder_' + $('Code: Classify Reminder Windows').item.json.reminder_kind }}"},
+            {"fieldId": "input_summary", "fieldValue": "={{ 'Visit ' + $('Code: Classify Reminder Windows').item.json.visit_id + ' at ' + $('Code: Classify Reminder Windows').item.json.scheduled_at }}"},
+            {"fieldId": "output_summary", "fieldValue": "={{ 'Reminder draft queued (' + $('Code: Classify Reminder Windows').item.json.reminder_kind + ')' }}"},
+            {"fieldId": "lead_id", "fieldValue": "={{ $('Code: Classify Reminder Windows').item.json.lead_id }}"},
+            {"fieldId": "trace_id", "fieldValue": "={{ $('Code: Classify Reminder Windows').item.json.traceId }}"},
+            {"fieldId": "status", "fieldValue": "ok"}
+          ]
+        }
+      },
+      "id": "supabase-log-reminder",
+      "name": "Supabase: Log Reminder",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 240],
+      "credentials": {
+        "supabaseApi": {"id": "REPLACE_AFTER_IMPORT", "name": "Supabase account"}
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger: Every 15 min": {"main": [[{"node": "HTTP: Fetch Upcoming Visits", "type": "main", "index": 0}]]},
+    "HTTP: Fetch Upcoming Visits": {"main": [[{"node": "Code: Classify Reminder Windows", "type": "main", "index": 0}]]},
+    "Code: Classify Reminder Windows": {"main": [[{"node": "IF: Has Reminders?", "type": "main", "index": 0}]]},
+    "IF: Has Reminders?": {"main": [
+      [{"node": "HTTP: Draft Reminder", "type": "main", "index": 0}],
+      []
+    ]},
+    "HTTP: Draft Reminder": {"main": [[{"node": "HTTP: Mark Reminded", "type": "main", "index": 0}]]},
+    "HTTP: Mark Reminded": {"main": [[{"node": "Supabase: Log Reminder", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "v1.1-visit-reminders-0001"
+}

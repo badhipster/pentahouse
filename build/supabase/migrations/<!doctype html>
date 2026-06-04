@@ -1,0 +1,330 @@
+<!doctype html>
+<!--[if IE 9]> <html class="ie9 no-js supports-no-cookies" lang="en"> <![endif]-->
+<!--[if (gt IE 9)|!(IE)]><!--> <html class="no-js supports-no-cookies" lang="en" data-state> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="">
+  <meta name="google-site-verification" content="pR2BeRzvWWEY2-dC4yGrlG5GekeQtznqzRlW-0b8zgc" />
+  <meta name="facebook-domain-verification" content="e6vvici7tne9oz6d3tp2nxl4qx1cjp" />
+  <link rel="canonical" href="https://www.magnoliabakery.com/pages/order-now">
+
+  <link rel="shortcut icon" href="//www.magnoliabakery.com/cdn/shop/files/MB_Favicon_32x32.png?v=1650906977" type="image/png"><title>Order Now
+&ndash; Magnolia Bakery</title>
+
+
+<meta property="og:site_name" content="Magnolia Bakery">
+<meta property="og:url" content="https://www.magnoliabakery.com/pages/order-now">
+<meta property="og:title" content="Order Now">
+<meta property="og:type" content="website">
+<meta property="og:description" content="Classic American baked goods and desserts like our world famous banana pudding, cakes and cupcakes. Order them online to ship nationwide or pick up in store.">
+<meta property="og:image" content="http://www.magnoliabakery.com/cdn/shop/files/banner_1200x628_c7b96357-2dc3-414f-816b-f7bbd5d99216_1200x1200.png?v=1651263312">
+<meta property="og:image:secure_url" content="https://www.magnoliabakery.com/cdn/shop/files/banner_1200x628_c7b96357-2dc3-414f-816b-f7bbd5d99216_1200x1200.png?v=1651263312">
+
+<meta name="twitter:site" content="@magnoliabakery">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Order Now">
+<meta name="twitter:description" content="Classic American baked goods and desserts like our world famous banana pudding, cakes and cupcakes. Order them online to ship nationwide or pick up in store.">
+  <style>@font-face {
+      font-family: 'Font Awesome 5 Pro';
+      font-style: normal;
+      font-weight: 400;
+      src: url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-regular-400.eot?v=122208858887156211731626222362');
+      src: url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-regular-400.eot?v=122208858887156211731626222362?#iefix') format('embedded-opentype'),
+      url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-regular-400.woff2?v=104933535168670321401626222363') format('woff2'),
+      url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-regular-400.woff?v=125864798660613506561626222362') format('woff'),
+      url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-regular-400.ttf?v=115909266330900300651626222362') format('truetype'),
+      url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-regular-400.svg?v=152625588768234401491626222362#fontawesome') format('svg');
+    }
+
+    .far {
+      font-family: 'Font Awesome 5 Pro';
+      font-weight: 400;
+    }@font-face {
+    font-family: 'Font Awesome 5 Brands';
+    font-style: normal;
+    font-weight: normal;
+    src: url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-brands-400.eot?v=115331300546751708981626222358');
+    src: url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-brands-400.eot?v=115331300546751708981626222358?#iefix') format('embedded-opentype'),
+    url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-brands-400.woff2?v=142236463632227080571626222359') format('woff2'),
+    url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-brands-400.woff?v=87000787087327735781626222359') format('woff'),
+    url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-brands-400.ttf?v=37855816356687289791626222358') format('truetype'),
+    url('//www.magnoliabakery.com/cdn/shop/t/6/assets/fa-brands-400.svg?v=154169200132894189141626222358#fontawesome') format('svg');
+  }
+
+  .fab {
+    font-family: 'Font Awesome 5 Brands';
+  }
+
+</style>
+  <style>
+  @font-face {
+    font-family: 'Trade Gothic Next SR Pro';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src:  url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Trade-Gothic-Next-SR-Pro.woff?v=3787112410034624861633563092") format("woff"),
+          url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Trade-Gothic-Next-SR-Pro.woff2?v=159385375155475999191633563093") format("woff2");
+  }
+
+  @font-face {
+    font-family: 'Gatefold Demi';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src:  url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Gatefold-Demibold.woff?v=71897035920810111591651031720") format("woff"),
+          url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Gatefold-Demibold.woff2?v=28293") format("woff2");
+  }
+
+  @font-face {
+    font-family: 'Gt Alpina';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src:  url("//www.magnoliabakery.com/cdn/shop/t/6/assets/GT-Alpina-Standard-Regular.woff?v=150509671153543090461651031720") format("woff"),
+          url("//www.magnoliabakery.com/cdn/shop/t/6/assets/GT-Alpina-Standard-Regular.woff2?v=3332075704702378261651031720") format("woff2");
+  }
+
+  @font-face {
+    font-family: 'Ambit';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src:  url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Ambit-Light.woff?v=101355573965577996151651031719") format("woff"),
+          url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Ambit-Light.woff2?v=161198572754099091211651031719") format("woff2");
+  }
+
+  @font-face {
+    font-family: 'Ambit';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src:  url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Ambit-Regular.woff?v=142476383572940157821651031719") format("woff"),
+          url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Ambit-Regular.woff2?v=80235381164334571171651031719") format("woff2");
+  }
+
+  @font-face {
+    font-family: 'Ambit';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src:  url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Ambit-Bold.woff?v=15751730330618720331651031718") format("woff"),
+          url("//www.magnoliabakery.com/cdn/shop/t/6/assets/Ambit-Bold.woff2?v=61217616652594390911651031718") format("woff2");
+  }
+</style>
+
+  <style id="navDropdowns"></style>
+
+  <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TPHSBVZ');</script>
+<!-- End Google Tag Manager -->
+<script>window.dataLayer = window.dataLayer || [];</script><!-- anti-flicker snippet (recommended)  -->
+    <style>.async-hide { opacity: 0 !important} </style>
+    <script>(function(a,s,y,n,c,h,i,d,e){s.className+=' '+y;h.start=1*new Date;
+    h.end=i=function(){s.className=s.className.replace(RegExp(' ?'+y),'')};
+    (a[n]=a[n]||[]).hide=h;setTimeout(function(){i();h.end=null},c);h.timeout=c;
+    })(window,document.documentElement,'async-hide','dataLayer',4000,
+    {'OPT-WQWZ5ZM':true});</script><!-- Google Optimize -->
+  <script src="https://www.googleoptimize.com/optimize.js?id=OPT-WQWZ5ZM"></script>
+  <!-- End Google Optimize --><script>
+  window.INF = {
+    settings: {
+      breakpoints: {
+        tablet: 768,
+        laptop: 990,
+        desktop: 1280,
+        gutters: 20
+      },
+      flickity: {
+        drag_threshold: 10
+      },
+      forms: {
+        design: "filled"
+      },
+      fontawesome: {
+        weight: "far"
+      },
+      products: {
+        tile_design: "flat",
+        tile_design_hover: "none",
+        quickview_enabled: false,
+        quickview_icon: "tag",
+        quickview_cta: "Quick View",
+        quickview_cta_class: "primary"
+      },
+      shop: {
+        money_format: "${{amount}}",
+        show_currency: false,
+        currency: "USD",
+        permanent_domain: "www.magnoliabakery.com",
+        name: "Magnolia Bakery"
+      },
+      social_links: [{
+              icon: 'fa-facebook',
+              url: 'https://www.facebook.com/MagnoliaBakery/',
+              title: "Magnolia Bakery on Facebook",
+              fallback: 'Facebook'
+            },
+        {
+              icon: 'fa-twitter',
+              url: 'https://www.twitter.com/magnoliabakery',
+              title: "Magnolia Bakery on Twitter",
+              fallback: 'Twitter'
+            },
+        {
+              icon: 'fa-pinterest',
+              url: 'https://www.pinterest.com/magnoliabakery',
+              title: "Magnolia Bakery on Pinterest",
+              fallback: 'Pinterest'
+            },
+        {
+              icon: 'fa-instagram',
+              url: 'https://www.instagram.com/magnoliabakery',
+              title: "Magnolia Bakery on Instagram",
+              fallback: 'Instagram'
+            },
+        
+        
+        
+        
+        
+      ],
+      instant_search: {
+        uuid: "",
+        store_id: "56597577916"
+      },
+      
+      preheader_enabled_desktop: true,
+      preheader_enabled_mobile: false,
+    },
+    cart: {
+      image_size: '420x',
+      strings: {
+        cartCount: {
+          0: '0 items',
+          1: '1 item',
+          2: '2 items',
+          other: '3 items'
+        }
+      }
+    },
+    user: {
+      sso_default_locale: "en-US",
+      shopify: {
+        accepts_marketing: null,
+        addresses: null,
+        addresses_count: null,
+        default_address: null,
+        email: null,
+        first_name: null,
+        has_account: null,
+        customer_id: null,
+        last_name: null,
+        last_order: null,
+        name: null,
+        orders: null,
+        orders_count: null,
+        phone: null,
+        tags: null,
+        tax_exempt: null,
+        total_spent: null
+      }
+    }
+  };
+
+  window.theme = {
+    strings: {
+      addToCart: "Add to Cart",
+      soldOut: "Sold Out",
+      unavailable: "Unavailable",
+      navigateCarousel: 'Use the left and right arrow keys to navigate this carousel',
+      quickviewLoading: 'Loading quickview',
+      cartCount: {
+        0: '0 items',
+        1: '1 item',
+        2: '2 items',
+        other: '3 items'
+      }
+    },
+    moneyFormat: "${{amount}}",
+    currency: "USD",
+    show_currency: false,
+    quantity_ui: "input",
+    external_links_in_new_window: true,
+    breakpoints: {
+      tablet: 768,
+      laptop: 990,
+      desktop: 1280,
+      gutters: 20
+    },
+    page_width: 1352,
+    cart: {
+      image_size: '420x'
+    },
+    pdp: {
+      image_size: '1194x'
+    },
+    flickity: {
+      dragThreshold: 10
+    },
+    toastr: {
+      positionClass: 'toast-bottom-right',
+      showDuration: 300,
+      hideDuration: 1000,
+      timeOut: 5000,
+      extendedTimeOut: 1000
+    },
+    fontawesome: {
+      type: 'far'
+    },
+    carousels: {},fast_simon: {
+        store_id: 56597577916,
+        uuid: "f1df984b-4190-433d-b29f-2769589d1adc",
+      }};
+</script>
+  <script>
+  INF.settings.isp = {
+    store_id: "56597577916",
+    uuid: "f1df984b-4190-433d-b29f-2769589d1adc",
+  };
+  INF.settings.shop.subdomain = "magnoliabakerystore";
+  INF.settings.shop.api_url = "https:\/\/smp-api.magnoliabakery.io";INF.settings.account_portal = {
+    auth: '',
+  };</script>
+
+  <script src="https://polyfill-fastly.net/v2/polyfill.min.js"></script>
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace('no-js', '');
+
+  window.elementLoaded = function(element) {
+    element.classList.add('AnimateOnLoad--preloaded');
+  };
+
+  window.triggerResize = function() {
+    if (window.debouncedResize) {
+      debouncedResize();
+    }
+  };
+
+  function injectVimeoPoster(data){
+    if (data && data[0] && data[0].thumbnail_large) {
+      var posters = document.querySelectorAll('[data-poster-for="' + data[0].id + '"]');
+      for (var i = 0; i < posters.length; i++) {
+        posters[i].style.backgroundImage = 'url("' + data[0].thumbnail_large + '")';
+      }
+    }
+  }
+</script>
+
+<script>if (!window['YT']) {var YT = {loading: 0,loaded: 0};}if (!window['YTConfig']) {var YTConfig = {'host': 'https://www.youtube.com'};}if (!YT.loading) {YT.loading = 1;(function(){var l = [];YT.ready = function(f) {if (YT.loaded) {f();} else {l.push(f);}};window.onYTReady = function() {YT.loaded = 1;for (var i = 0; i < l.length; i++) {try {l[i]();} catch (e) {}}};YT.setConfig = function(c) {for (var k in c) {if (c.hasOwnProperty(k)) {YTConfig[k] = c[k];}}};var a = document.createElement('script');a.type = 'text/javascript';a.id = 'www-widgetapi-script';a.src = 'https://s.ytimg.com/yts/jsbin/www-widgetapi-vflnjBBxk/www-widgetapi.js';a.async = true;var c = document.currentScript;if (c) {var n = c.nonce || c.getAttribute('nonce');if (n) {a.setAttribute('nonce', n);}}var b = document.getElementsByTagName('script')[0];b.parentNode.insertBefore(a, b);})();}</script>
+
+<!-- IE11 pollyfill for CSS vars -->
+<script>window.MSInputMethodContext && document.documentMode && document.write('<script src="//storage.googleapis.com/infinite/ie11_css_vars.js"><\x2fscript>');</script>
+
+  <script type="application/json" data-vue-locales>{"general":"{\u0026quot;404\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;404 Page Not Found\u0026quot;, \u0026quot;subtext_html\u0026quot;=\u0026gt;\u0026quot;The page you requested does not exist. Click \u0026lt;a href=\\\u0026quot;\/collections\/all\\\u0026quot;\u0026gt;here\u0026lt;\/a\u0026gt; to continue shopping.\u0026quot;, \u0026quot;main_message\u0026quot;=\u0026gt;\u0026quot;Sorry, but the page you are looking for is not available.\u0026quot;, \u0026quot;sub_message_html\u0026quot;=\u0026gt;\u0026quot;Please visit our \u0026lt;a class=\\\u0026quot;Anchor__blue\\\u0026quot; href=\\\u0026quot;\/\\\u0026quot;\u0026gt;homepage\u0026lt;\/a\u0026gt; to learn more, or our \u0026lt;a class=\\\u0026quot;Anchor__blue\\\u0026quot; href=\\\u0026quot;\/collections\\\u0026quot;\u0026gt;product page\u0026lt;\/a\u0026gt; to explore all of our tasty treats. If you would like to contact us, please email us at \u0026lt;a class=\\\u0026quot;Anchor__blue\\\u0026quot; href=\\\u0026quot;mailto:hello@magnoliabakery.com\\\u0026quot;\u0026gt;hello@magnoliabakery.com\u0026lt;\/a\u0026gt; and we will do our best to assist you.\u0026quot;}, \u0026quot;accessibility\u0026quot;=\u0026gt;{\u0026quot;skip_to_content\u0026quot;=\u0026gt;\u0026quot;Skip to content\u0026quot;, \u0026quot;navigate_carousel\u0026quot;=\u0026gt;\u0026quot;Use the left and right arrow keys to navigate this carousel\u0026quot;, \u0026quot;quickview_loading\u0026quot;=\u0026gt;\u0026quot;Loading quickview\u0026quot;}, \u0026quot;meta\u0026quot;=\u0026gt;{\u0026quot;tags\u0026quot;=\u0026gt;\u0026quot;Tagged \\\u0026quot;{{ tags }}\\\u0026quot;\u0026quot;, \u0026quot;page\u0026quot;=\u0026gt;\u0026quot;Page {{ page }}\u0026quot;}, \u0026quot;password_page\u0026quot;=\u0026gt;{\u0026quot;opening_soon\u0026quot;=\u0026gt;\u0026quot;Opening Soon\u0026quot;, \u0026quot;spread_the_word\u0026quot;=\u0026gt;\u0026quot;Spread the word\u0026quot;, \u0026quot;login_form_heading\u0026quot;=\u0026gt;\u0026quot;Enter store using password\u0026quot;, \u0026quot;login_form_password_label\u0026quot;=\u0026gt;\u0026quot;Password\u0026quot;, \u0026quot;login_form_password_placeholder\u0026quot;=\u0026gt;\u0026quot;Your password\u0026quot;, \u0026quot;login_form_submit\u0026quot;=\u0026gt;\u0026quot;Enter\u0026quot;, \u0026quot;signup_form_heading\u0026quot;=\u0026gt;\u0026quot;Find out when we open\u0026quot;, \u0026quot;signup_form_email_label\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;signup_form_email_placeholder\u0026quot;=\u0026gt;\u0026quot;Your email\u0026quot;, \u0026quot;signup_form_submit\u0026quot;=\u0026gt;\u0026quot;Submit\u0026quot;, \u0026quot;signup_form_success\u0026quot;=\u0026gt;\u0026quot;We will send you an email right before we open!\u0026quot;, \u0026quot;admin_link_html\u0026quot;=\u0026gt;\u0026quot;Are you the store owner? \u0026lt;a href=\\\u0026quot;\/admin\\\u0026quot;\u0026gt;Log in here\u0026lt;\/a\u0026gt;\u0026quot;, \u0026quot;password_link\u0026quot;=\u0026gt;\u0026quot;Enter using password\u0026quot;, \u0026quot;powered_by_shopify_html\u0026quot;=\u0026gt;\u0026quot;This shop will be powered by {{ shopify }}\u0026quot;}, \u0026quot;social\u0026quot;=\u0026gt;{\u0026quot;share_on_facebook\u0026quot;=\u0026gt;\u0026quot;Share\u0026quot;, \u0026quot;share_on_twitter\u0026quot;=\u0026gt;\u0026quot;Tweet\u0026quot;, \u0026quot;share_on_pinterest\u0026quot;=\u0026gt;\u0026quot;Pin it\u0026quot;, \u0026quot;alt_text\u0026quot;=\u0026gt;{\u0026quot;share_on_facebook\u0026quot;=\u0026gt;\u0026quot;Share on Facebook\u0026quot;, \u0026quot;share_on_twitter\u0026quot;=\u0026gt;\u0026quot;Tweet on Twitter\u0026quot;, \u0026quot;share_on_pinterest\u0026quot;=\u0026gt;\u0026quot;Pin on Pinterest\u0026quot;}}, \u0026quot;search\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Search for products on our site\u0026quot;, \u0026quot;placeholder\u0026quot;=\u0026gt;\u0026quot;Search our store\u0026quot;, \u0026quot;submit\u0026quot;=\u0026gt;\u0026quot;Search\u0026quot;, \u0026quot;heading\u0026quot;=\u0026gt;{\u0026quot;one\u0026quot;=\u0026gt;\u0026quot;Search result\u0026quot;, \u0026quot;other\u0026quot;=\u0026gt;\u0026quot;Search results\u0026quot;}, \u0026quot;results_with_count\u0026quot;=\u0026gt;{\u0026quot;one\u0026quot;=\u0026gt;\u0026quot;{{ count }} result for \\\u0026quot;{{ terms }}\\\u0026quot;\u0026quot;, \u0026quot;other\u0026quot;=\u0026gt;\u0026quot;{{ count }} results for \\\u0026quot;{{ terms }}\\\u0026quot;\u0026quot;}, \u0026quot;no_results_html\u0026quot;=\u0026gt;\u0026quot;Please try a different search term or go back to the \u0026lt;a class=\\\u0026quot;Anchor__blue\\\u0026quot; href=\\\u0026quot;\/\\\u0026quot;\u0026gt;homepage\u0026lt;\/a\u0026gt;.\u0026quot;, \u0026quot;header_link_aria_label\u0026quot;=\u0026gt;\u0026quot;Search our store\u0026quot;}, \u0026quot;newsletter_form\u0026quot;=\u0026gt;{\u0026quot;newsletter_email\u0026quot;=\u0026gt;\u0026quot;Join our mailing list\u0026quot;, \u0026quot;email_placeholder\u0026quot;=\u0026gt;\u0026quot;Email address\u0026quot;, \u0026quot;confirmation\u0026quot;=\u0026gt;\u0026quot;Thanks for subscribing\u0026quot;, \u0026quot;submit\u0026quot;=\u0026gt;\u0026quot;Subscribe\u0026quot;}, \u0026quot;validation\u0026quot;=\u0026gt;{\u0026quot;alpha\u0026quot;=\u0026gt;\u0026quot;A-Z only\u0026quot;, \u0026quot;between\u0026quot;=\u0026gt;\u0026quot;Must be between {{min}} and {{max}}\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email only\u0026quot;, \u0026quot;integer\u0026quot;=\u0026gt;\u0026quot;Integer only\u0026quot;, \u0026quot;max_length\u0026quot;=\u0026gt;{\u0026quot;array\u0026quot;=\u0026gt;\u0026quot;Must make at most {{length}} selections\u0026quot;, \u0026quot;string\u0026quot;=\u0026gt;\u0026quot;Must be at most {{length}} characters\u0026quot;}, \u0026quot;max_value\u0026quot;=\u0026gt;\u0026quot;Must be at most {{max}}\u0026quot;, \u0026quot;min_length\u0026quot;=\u0026gt;{\u0026quot;array\u0026quot;=\u0026gt;\u0026quot;Must make at least {{length}} selections\u0026quot;, \u0026quot;string\u0026quot;=\u0026gt;\u0026quot;Must be at least {{length}} characters\u0026quot;}, \u0026quot;min_value\u0026quot;=\u0026gt;\u0026quot;Must be at least {{min}}\u0026quot;, \u0026quot;not\u0026quot;=\u0026gt;\u0026quot;Must not be {{reject_value}}\u0026quot;, \u0026quot;required\u0026quot;=\u0026gt;\u0026quot;Required\u0026quot;, \u0026quot;same_as\u0026quot;=\u0026gt;\u0026quot;Must match\u0026quot;, \u0026quot;length\u0026quot;=\u0026gt;\u0026quot;Must be {{length}} characters\u0026quot;, \u0026quot;phone\u0026quot;=\u0026gt;\u0026quot;Please enter valid phone number\u0026quot;, \u0026quot;url\u0026quot;=\u0026gt;\u0026quot;Please enter a valid URL - we recommend copy\/paste\u0026quot;, \u0026quot;zipcode\u0026quot;=\u0026gt;\u0026quot;Please enter a valid zip code\u0026quot;}, \u0026quot;announcements\u0026quot;=\u0026gt;{\u0026quot;next_aria_label\u0026quot;=\u0026gt;\u0026quot;Next announcement\u0026quot;, \u0026quot;previous_aria_label\u0026quot;=\u0026gt;\u0026quot;Previous announcement\u0026quot;}}","blogs":"{\u0026quot;article\u0026quot;=\u0026gt;{\u0026quot;author_on_date_html\u0026quot;=\u0026gt;\u0026quot;Posted by {{ author }} on {{ date }}\u0026quot;, \u0026quot;comment_meta_html\u0026quot;=\u0026gt;\u0026quot;{{ author }} on {{ date }}\u0026quot;, \u0026quot;read_more\u0026quot;=\u0026gt;\u0026quot;Read more\u0026quot;, \u0026quot;read_more_title\u0026quot;=\u0026gt;\u0026quot;Read more: {{ title }}\u0026quot;, \u0026quot;by_author\u0026quot;=\u0026gt;\u0026quot;by {{ author }}\u0026quot;, \u0026quot;tags\u0026quot;=\u0026gt;\u0026quot;Tags\u0026quot;}, \u0026quot;comments\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Leave a comment\u0026quot;, \u0026quot;name\u0026quot;=\u0026gt;\u0026quot;Name\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;message\u0026quot;=\u0026gt;\u0026quot;Message\u0026quot;, \u0026quot;post\u0026quot;=\u0026gt;\u0026quot;Post comment\u0026quot;, \u0026quot;moderated\u0026quot;=\u0026gt;\u0026quot;Please note, comments must be approved before they are published\u0026quot;, \u0026quot;success_moderated\u0026quot;=\u0026gt;\u0026quot;Your comment was posted successfully. We will publish it in a little while, as our blog is moderated.\u0026quot;, \u0026quot;success\u0026quot;=\u0026gt;\u0026quot;Your comment was posted successfully! Thank you!\u0026quot;, \u0026quot;with_count\u0026quot;=\u0026gt;{\u0026quot;one\u0026quot;=\u0026gt;\u0026quot;{{ count }} comment\u0026quot;, \u0026quot;other\u0026quot;=\u0026gt;\u0026quot;{{ count }} comments\u0026quot;}}, \u0026quot;general\u0026quot;=\u0026gt;{\u0026quot;categories\u0026quot;=\u0026gt;\u0026quot;Categories\u0026quot;}}","cart":"{\u0026quot;general\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Shopping Cart\u0026quot;, \u0026quot;remove\u0026quot;=\u0026gt;\u0026quot;Remove\u0026quot;, \u0026quot;note\u0026quot;=\u0026gt;\u0026quot;Special instructions for seller\u0026quot;, \u0026quot;subtotal\u0026quot;=\u0026gt;\u0026quot;Subtotal\u0026quot;, \u0026quot;shipping_at_checkout\u0026quot;=\u0026gt;\u0026quot;Shipping \u0026amp; Taxes calculated at checkout\u0026quot;, \u0026quot;update\u0026quot;=\u0026gt;\u0026quot;Update Cart\u0026quot;, \u0026quot;checkout\u0026quot;=\u0026gt;\u0026quot;Checkout\u0026quot;, \u0026quot;checkout_mobile\u0026quot;=\u0026gt;\u0026quot;Checkout\u0026quot;, \u0026quot;checkout_desktop\u0026quot;=\u0026gt;\u0026quot;Proceed to Checkout\u0026quot;, \u0026quot;empty\u0026quot;=\u0026gt;\u0026quot;Your cart is currently empty.\u0026quot;, \u0026quot;cookies_required\u0026quot;=\u0026gt;\u0026quot;Enable cookies to use the shopping cart\u0026quot;, \u0026quot;continue\u0026quot;=\u0026gt;\u0026quot;Continue Shopping\u0026quot;, \u0026quot;continue_browsing_html\u0026quot;=\u0026gt;\u0026quot;Continue browsing \u0026lt;a href=\\\u0026quot;\/collections\/all\\\u0026quot;\u0026gt;here\u0026lt;\/a\u0026gt;.\u0026quot;, \u0026quot;item_quantity\u0026quot;=\u0026gt;\u0026quot;Item quantity\u0026quot;, \u0026quot;savings\u0026quot;=\u0026gt;\u0026quot;You\u0026#39;re saving\u0026quot;, \u0026quot;free_gift_message_html\u0026quot;=\u0026gt;\u0026quot;Add {{ val_1 }}to your cart{{ val_2 }} to get your free gift!\u0026quot;, \u0026quot;item_count_html\u0026quot;=\u0026gt;{\u0026quot;zero\u0026quot;=\u0026gt;\u0026quot;{{ count }} items\u0026quot;, \u0026quot;one\u0026quot;=\u0026gt;\u0026quot;{{ count }} item\u0026quot;, \u0026quot;two\u0026quot;=\u0026gt;\u0026quot;{{ count }} items\u0026quot;, \u0026quot;other\u0026quot;=\u0026gt;\u0026quot;{{ count }} items\u0026quot;}, \u0026quot;parcial_inventory_error\u0026quot;=\u0026gt;\u0026quot;Only {{ quantity }} items are available.\u0026quot;, \u0026quot;cart_item_remove_label\u0026quot;=\u0026gt;\u0026quot;Remove\u0026quot;, \u0026quot;cart_item_header\u0026quot;=\u0026gt;\u0026quot;Your Items\u0026quot;, \u0026quot;mobile_cta\u0026quot;=\u0026gt;\u0026quot;Your Cart\u0026quot;, \u0026quot;upsell_title\u0026quot;=\u0026gt;\u0026quot;You may also like...\u0026quot;, \u0026quot;add_gift_message\u0026quot;=\u0026gt;\u0026quot;Add Gift Message\u0026quot;, \u0026quot;skip_gift_message\u0026quot;=\u0026gt;\u0026quot;Skip Gift Message\u0026quot;, \u0026quot;add_subscription_gift_heading\u0026quot;=\u0026gt;\u0026quot;Is this a gift?\u0026quot;, \u0026quot;add_subscription_gift_details\u0026quot;=\u0026gt;\u0026quot;Add gift details\u0026quot;, \u0026quot;skip_subscription_gift_details\u0026quot;=\u0026gt;\u0026quot;Skip gift details\u0026quot;, \u0026quot;subscription_gifting_continue\u0026quot;=\u0026gt;\u0026quot;Continue\u0026quot;, \u0026quot;pre_cart_header_gift_message\u0026quot;=\u0026gt;\u0026quot;Add gift message\u0026quot;, \u0026quot;for_pickup\u0026quot;=\u0026gt;\u0026quot;For pick up please select...\u0026quot;, \u0026quot;for_delivery\u0026quot;=\u0026gt;\u0026quot;For nationwide delivery please select..\u0026quot;, \u0026quot;pickup_location\u0026quot;=\u0026gt;\u0026quot;Pick up location\u0026quot;, \u0026quot;pickup_date\u0026quot;=\u0026gt;\u0026quot;Pick up date\u0026quot;, \u0026quot;pickup_time\u0026quot;=\u0026gt;\u0026quot;Pick up time\u0026quot;, \u0026quot;delivery_zip\u0026quot;=\u0026gt;\u0026quot;Delivery zipcode\u0026quot;, \u0026quot;delivery_date\u0026quot;=\u0026gt;\u0026quot;Delivery date\u0026quot;}, \u0026quot;label\u0026quot;=\u0026gt;{\u0026quot;product\u0026quot;=\u0026gt;\u0026quot;Product\u0026quot;, \u0026quot;price\u0026quot;=\u0026gt;\u0026quot;Price\u0026quot;, \u0026quot;quantity\u0026quot;=\u0026gt;\u0026quot;Quantity\u0026quot;, \u0026quot;decrease_quantity\u0026quot;=\u0026gt;\u0026quot;Decrease quantity\u0026quot;, \u0026quot;increase_quantity\u0026quot;=\u0026gt;\u0026quot;Increase quantity\u0026quot;, \u0026quot;total\u0026quot;=\u0026gt;\u0026quot;Total\u0026quot;, \u0026quot;discounted_price\u0026quot;=\u0026gt;\u0026quot;Discounted price\u0026quot;, \u0026quot;original_price\u0026quot;=\u0026gt;\u0026quot;Original price\u0026quot;}, \u0026quot;discount\u0026quot;=\u0026gt;{\u0026quot;incentive\u0026quot;=\u0026gt;\u0026quot;Spend {{ amount }} more to receive {{ discount }} off your order\u0026quot;, \u0026quot;success\u0026quot;=\u0026gt;\u0026quot;Congratulations, you have earned a {{ discount }} discount\u0026quot;}, \u0026quot;location_selector\u0026quot;=\u0026gt;{\u0026quot;unavailable_locations_filtered\u0026quot;=\u0026gt;\u0026quot;Some stores may be unavailable due to your selected items. To see more locations, please remove the following item(s):\u0026quot;, \u0026quot;selected_product_not_available_at_selected_store\u0026quot;=\u0026gt;\u0026quot;This product is not available at the selected store:\u0026quot;, \u0026quot;store_unavailable_for_cart\u0026quot;=\u0026gt;\u0026quot;Your cart items are not available at this store:\u0026quot;}}","collections":"{\u0026quot;general\u0026quot;=\u0026gt;{\u0026quot;no_matches\u0026quot;=\u0026gt;\u0026quot;Sorry, there are no products in this collection\u0026quot;, \u0026quot;link_title\u0026quot;=\u0026gt;\u0026quot;Browse our {{ title }} collection\u0026quot;, \u0026quot;filter_clear_all\u0026quot;=\u0026gt;\u0026quot;Clear all\u0026quot;, \u0026quot;filter_clear\u0026quot;=\u0026gt;\u0026quot;Clear\u0026quot;, \u0026quot;filter_heading\u0026quot;=\u0026gt;\u0026quot;Filter By\u0026quot;, \u0026quot;sort_by\u0026quot;=\u0026gt;\u0026quot;Sort by\u0026quot;, \u0026quot;results_heading\u0026quot;=\u0026gt;\u0026quot;{{ count }} Results\u0026quot;, \u0026quot;no_match_filters\u0026quot;=\u0026gt;\u0026quot;No results found, please adjust your filter selection.\u0026quot;, \u0026quot;filter_heading_mobile\u0026quot;=\u0026gt;\u0026quot;Filter\u0026quot;, \u0026quot;seasonal_gifting_header\u0026quot;=\u0026gt;\u0026quot;Nationwide Gifting\u0026quot;}, \u0026quot;pagination\u0026quot;=\u0026gt;{\u0026quot;previous\u0026quot;=\u0026gt;\u0026quot;Previous\u0026quot;, \u0026quot;next\u0026quot;=\u0026gt;\u0026quot;Next\u0026quot;, \u0026quot;first\u0026quot;=\u0026gt;\u0026quot;First\u0026quot;, \u0026quot;last\u0026quot;=\u0026gt;\u0026quot;Last\u0026quot;}}","contact":"{\u0026quot;form\u0026quot;=\u0026gt;{\u0026quot;name\u0026quot;=\u0026gt;\u0026quot;Name\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;phone\u0026quot;=\u0026gt;\u0026quot;Phone Number\u0026quot;, \u0026quot;message\u0026quot;=\u0026gt;\u0026quot;Message\u0026quot;, \u0026quot;send\u0026quot;=\u0026gt;\u0026quot;Send\u0026quot;, \u0026quot;post_success_title\u0026quot;=\u0026gt;\u0026quot;Message Received\u0026quot;, \u0026quot;post_success\u0026quot;=\u0026gt;\u0026quot;Thanks for contacting us. We\u0026#39;ll get back to you as soon as possible.\u0026quot;, \u0026quot;address\u0026quot;=\u0026gt;\u0026quot;Address\u0026quot;, \u0026quot;event_type_label\u0026quot;=\u0026gt;\u0026quot;Type of Event\u0026quot;, \u0026quot;event_type_options\u0026quot;=\u0026gt;\u0026quot;Birthday | Reunion | Anniversary | Retirement | Engagement | Bar\/Bat Mitzvah | Baby Shower | Bridal Shower | Bachelor Party | Gender Reveal | Holiday | Other\u0026quot;, \u0026quot;business\u0026quot;=\u0026gt;\u0026quot;Business\u0026quot;, \u0026quot;contact_information\u0026quot;=\u0026gt;\u0026quot;Contact Information\u0026quot;, \u0026quot;address_line_1\u0026quot;=\u0026gt;\u0026quot;Address Line 1\u0026quot;, \u0026quot;address_line_2\u0026quot;=\u0026gt;\u0026quot;Address Line 2\u0026quot;, \u0026quot;city\u0026quot;=\u0026gt;\u0026quot;City\u0026quot;, \u0026quot;state\u0026quot;=\u0026gt;\u0026quot;State\u0026quot;, \u0026quot;zipcode\u0026quot;=\u0026gt;\u0026quot;Zipcode\u0026quot;, \u0026quot;country\u0026quot;=\u0026gt;\u0026quot;Country\u0026quot;, \u0026quot;venue\u0026quot;=\u0026gt;\u0026quot;Venue\u0026quot;, \u0026quot;venue_address_line_1\u0026quot;=\u0026gt;\u0026quot;Venue Address Line 1\u0026quot;, \u0026quot;venue_address_line_2\u0026quot;=\u0026gt;\u0026quot;Venue Address Line 2\u0026quot;, \u0026quot;venue_city\u0026quot;=\u0026gt;\u0026quot;Venue City\u0026quot;, \u0026quot;venue_state\u0026quot;=\u0026gt;\u0026quot;Venue State\u0026quot;, \u0026quot;venue_zipcode\u0026quot;=\u0026gt;\u0026quot;Venue Zipcode\u0026quot;, \u0026quot;venue_country\u0026quot;=\u0026gt;\u0026quot;Venue Country\u0026quot;, \u0026quot;details\u0026quot;=\u0026gt;\u0026quot;Details\u0026quot;, \u0026quot;location\u0026quot;=\u0026gt;\u0026quot;Location\u0026quot;, \u0026quot;number_of_guests\u0026quot;=\u0026gt;\u0026quot;Number of guests\u0026quot;, \u0026quot;per_guest_price_point\u0026quot;=\u0026gt;\u0026quot;Price Point Per Recipient\u0026quot;, \u0026quot;date_of_event\u0026quot;=\u0026gt;\u0026quot;Date of Event\u0026quot;, \u0026quot;time_of_event\u0026quot;=\u0026gt;\u0026quot;Time of Event\u0026quot;, \u0026quot;time\u0026quot;=\u0026gt;\u0026quot;Event Time\u0026quot;, \u0026quot;hour\u0026quot;=\u0026gt;\u0026quot;Hour\u0026quot;, \u0026quot;minute\u0026quot;=\u0026gt;\u0026quot;Minute\u0026quot;, \u0026quot;period\u0026quot;=\u0026gt;\u0026quot;Period\u0026quot;, \u0026quot;types_of_dessert\u0026quot;=\u0026gt;\u0026quot;Types of Dessert\u0026quot;, \u0026quot;other_dessert\u0026quot;=\u0026gt;\u0026quot;Other dessert\u0026quot;, \u0026quot;other_event\u0026quot;=\u0026gt;\u0026quot;Other event\u0026quot;, \u0026quot;additional_comments\u0026quot;=\u0026gt;\u0026quot;Additional Comments\u0026quot;, \u0026quot;inspiration\u0026quot;=\u0026gt;\u0026quot;Dessert Photo Inspiration\u0026quot;, \u0026quot;inspiration_details\u0026quot;=\u0026gt;\u0026quot;Include up to 3 image URLs from social media. If you have original photos, please upload them to a drive service such as Google Drive, Dropbox, etc. and provide share links here.\u0026quot;, \u0026quot;inspiration_url_1\u0026quot;=\u0026gt;\u0026quot;Image URL 1\u0026quot;, \u0026quot;inspiration_url_2\u0026quot;=\u0026gt;\u0026quot;Image URL 2\u0026quot;, \u0026quot;inspiration_url_3\u0026quot;=\u0026gt;\u0026quot;Image URL 3\u0026quot;, \u0026quot;post_success_heading\u0026quot;=\u0026gt;\u0026quot;Thanks for getting in touch!\u0026quot;, \u0026quot;post_success_html\u0026quot;=\u0026gt;\u0026quot;A member of our team will reach out to you soon to finalize your order.\u0026quot;, \u0026quot;post_success_cta\u0026quot;=\u0026gt;\u0026quot;Contact Us\u0026quot;}}","customer":"{\u0026quot;account\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;My Account\u0026quot;, \u0026quot;details\u0026quot;=\u0026gt;\u0026quot;Account Details\u0026quot;, \u0026quot;view_addresses\u0026quot;=\u0026gt;\u0026quot;View Addresses\u0026quot;, \u0026quot;return\u0026quot;=\u0026gt;\u0026quot;Return to Account Details\u0026quot;}, \u0026quot;activate_account\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Activate Account\u0026quot;, \u0026quot;subtext\u0026quot;=\u0026gt;\u0026quot;Create your password to activate your account.\u0026quot;, \u0026quot;password\u0026quot;=\u0026gt;\u0026quot;Password\u0026quot;, \u0026quot;password_confirm\u0026quot;=\u0026gt;\u0026quot;Confirm Password\u0026quot;, \u0026quot;submit\u0026quot;=\u0026gt;\u0026quot;Activate Account\u0026quot;, \u0026quot;cancel\u0026quot;=\u0026gt;\u0026quot;Decline Invitation\u0026quot;}, \u0026quot;addresses\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Your Addresses\u0026quot;, \u0026quot;default\u0026quot;=\u0026gt;\u0026quot;Default\u0026quot;, \u0026quot;add_new\u0026quot;=\u0026gt;\u0026quot;Add a New Address\u0026quot;, \u0026quot;edit_address\u0026quot;=\u0026gt;\u0026quot;Edit address\u0026quot;, \u0026quot;first_name\u0026quot;=\u0026gt;\u0026quot;First Name\u0026quot;, \u0026quot;last_name\u0026quot;=\u0026gt;\u0026quot;Last Name\u0026quot;, \u0026quot;company\u0026quot;=\u0026gt;\u0026quot;Company\u0026quot;, \u0026quot;address1\u0026quot;=\u0026gt;\u0026quot;Address1\u0026quot;, \u0026quot;address2\u0026quot;=\u0026gt;\u0026quot;Address2\u0026quot;, \u0026quot;city\u0026quot;=\u0026gt;\u0026quot;City\u0026quot;, \u0026quot;country\u0026quot;=\u0026gt;\u0026quot;Country\u0026quot;, \u0026quot;province\u0026quot;=\u0026gt;\u0026quot;Province\u0026quot;, \u0026quot;zip\u0026quot;=\u0026gt;\u0026quot;Postal\/Zip Code\u0026quot;, \u0026quot;phone\u0026quot;=\u0026gt;\u0026quot;Phone\u0026quot;, \u0026quot;set_default\u0026quot;=\u0026gt;\u0026quot;Set as default address\u0026quot;, \u0026quot;add\u0026quot;=\u0026gt;\u0026quot;Add Address\u0026quot;, \u0026quot;update\u0026quot;=\u0026gt;\u0026quot;Update Address\u0026quot;, \u0026quot;cancel\u0026quot;=\u0026gt;\u0026quot;Cancel\u0026quot;, \u0026quot;edit\u0026quot;=\u0026gt;\u0026quot;Edit\u0026quot;, \u0026quot;delete\u0026quot;=\u0026gt;\u0026quot;Delete\u0026quot;, \u0026quot;delete_confirm\u0026quot;=\u0026gt;\u0026quot;Are you sure you wish to delete this address?\u0026quot;}, \u0026quot;login\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Login\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;password\u0026quot;=\u0026gt;\u0026quot;Password\u0026quot;, \u0026quot;forgot_password\u0026quot;=\u0026gt;\u0026quot;Forgot your password?\u0026quot;, \u0026quot;sign_in\u0026quot;=\u0026gt;\u0026quot;Sign In\u0026quot;, \u0026quot;cancel\u0026quot;=\u0026gt;\u0026quot;Return to Store\u0026quot;, \u0026quot;guest_title\u0026quot;=\u0026gt;\u0026quot;Continue as a guest\u0026quot;, \u0026quot;guest_continue\u0026quot;=\u0026gt;\u0026quot;Continue\u0026quot;, \u0026quot;facebook\u0026quot;=\u0026gt;\u0026quot;Sign In with Facebook\u0026quot;, \u0026quot;google\u0026quot;=\u0026gt;\u0026quot;Sign In with Google\u0026quot;, \u0026quot;unexpected_error\u0026quot;=\u0026gt;\u0026quot;There was a problem processing your request, please try again later.\u0026quot;, \u0026quot;pre_message\u0026quot;=\u0026gt;\u0026quot;If you already have an account, \u0026quot;, \u0026quot;login_message\u0026quot;=\u0026gt;\u0026quot;log in here\u0026quot;}, \u0026quot;orders\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Order History\u0026quot;, \u0026quot;order_number\u0026quot;=\u0026gt;\u0026quot;Order #\u0026quot;, \u0026quot;date\u0026quot;=\u0026gt;\u0026quot;Date\u0026quot;, \u0026quot;payment_status\u0026quot;=\u0026gt;\u0026quot;Payment Status\u0026quot;, \u0026quot;fulfillment_status\u0026quot;=\u0026gt;\u0026quot;Status\u0026quot;, \u0026quot;total\u0026quot;=\u0026gt;\u0026quot;Total\u0026quot;, \u0026quot;none\u0026quot;=\u0026gt;\u0026quot;You haven\u0026#39;t placed any orders yet.\u0026quot;}, \u0026quot;order\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Order {{ name }}\u0026quot;, \u0026quot;date\u0026quot;=\u0026gt;\u0026quot;Placed on {{ date }}\u0026quot;, \u0026quot;cancelled\u0026quot;=\u0026gt;\u0026quot;Cancelled\u0026quot;, \u0026quot;cancelled_reason\u0026quot;=\u0026gt;\u0026quot;Reason: {{ reason }}\u0026quot;, \u0026quot;summary\u0026quot;=\u0026gt;\u0026quot;Summary\u0026quot;, \u0026quot;billing_address\u0026quot;=\u0026gt;\u0026quot;Billing Address\u0026quot;, \u0026quot;payment_status\u0026quot;=\u0026gt;\u0026quot;Payment Status\u0026quot;, \u0026quot;payment_method\u0026quot;=\u0026gt;\u0026quot;Payment Method\u0026quot;, \u0026quot;shipping_address\u0026quot;=\u0026gt;\u0026quot;Shipping Address\u0026quot;, \u0026quot;fulfillment_status\u0026quot;=\u0026gt;\u0026quot;Status\u0026quot;, \u0026quot;discount\u0026quot;=\u0026gt;\u0026quot;Discount\u0026quot;, \u0026quot;shipping\u0026quot;=\u0026gt;\u0026quot;Shipping\u0026quot;, \u0026quot;shipped_on\u0026quot;=\u0026gt;\u0026quot;Shipped on\u0026quot;, \u0026quot;preparing\u0026quot;=\u0026gt;\u0026quot;Preparing for shipment\u0026quot;, \u0026quot;via\u0026quot;=\u0026gt;\u0026quot;via\u0026quot;, \u0026quot;tax\u0026quot;=\u0026gt;\u0026quot;Tax\u0026quot;, \u0026quot;product\u0026quot;=\u0026gt;\u0026quot;Product\u0026quot;, \u0026quot;sku\u0026quot;=\u0026gt;\u0026quot;SKU\u0026quot;, \u0026quot;price\u0026quot;=\u0026gt;\u0026quot;Price\u0026quot;, \u0026quot;quantity\u0026quot;=\u0026gt;\u0026quot;Quantity\u0026quot;, \u0026quot;total\u0026quot;=\u0026gt;\u0026quot;Total\u0026quot;, \u0026quot;track_shipment\u0026quot;=\u0026gt;\u0026quot;Track shipment\u0026quot;, \u0026quot;tracking_url\u0026quot;=\u0026gt;\u0026quot;Tracking link\u0026quot;, \u0026quot;tracking_company\u0026quot;=\u0026gt;\u0026quot;Carrier\u0026quot;, \u0026quot;tracking_number\u0026quot;=\u0026gt;\u0026quot;Tracking number\u0026quot;, \u0026quot;subtotal\u0026quot;=\u0026gt;\u0026quot;Subtotal\u0026quot;, \u0026quot;pickup_address\u0026quot;=\u0026gt;\u0026quot;Pickup Address\u0026quot;, \u0026quot;pickup_time\u0026quot;=\u0026gt;\u0026quot;Pickup Time\u0026quot;, \u0026quot;delivery_date\u0026quot;=\u0026gt;\u0026quot;Delivery Date\u0026quot;}, \u0026quot;recover_password\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Reset your password\u0026quot;, \u0026quot;success_title\u0026quot;=\u0026gt;\u0026quot;Password reset requested\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;submit\u0026quot;=\u0026gt;\u0026quot;Submit\u0026quot;, \u0026quot;cancel\u0026quot;=\u0026gt;\u0026quot;Cancel\u0026quot;, \u0026quot;subtext\u0026quot;=\u0026gt;\u0026quot;We will send you an email to reset your password.\u0026quot;, \u0026quot;success\u0026quot;=\u0026gt;\u0026quot;We\u0026#39;ve sent you an email with a link to update your password.\u0026quot;, \u0026quot;unexpected_error\u0026quot;=\u0026gt;\u0026quot;There was a problem processing your request, please try again later.\u0026quot;}, \u0026quot;reset_password\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Reset account password\u0026quot;, \u0026quot;subtext\u0026quot;=\u0026gt;\u0026quot;Enter a new password for {{ email }}\u0026quot;, \u0026quot;password\u0026quot;=\u0026gt;\u0026quot;Password\u0026quot;, \u0026quot;password_confirm\u0026quot;=\u0026gt;\u0026quot;Confirm password\u0026quot;, \u0026quot;submit\u0026quot;=\u0026gt;\u0026quot;Reset Password\u0026quot;}, \u0026quot;register\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Create Account\u0026quot;, \u0026quot;first_name\u0026quot;=\u0026gt;\u0026quot;First name\u0026quot;, \u0026quot;last_name\u0026quot;=\u0026gt;\u0026quot;Last name\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;password\u0026quot;=\u0026gt;\u0026quot;Password\u0026quot;, \u0026quot;confirm_password\u0026quot;=\u0026gt;\u0026quot;Confirm password\u0026quot;, \u0026quot;submit\u0026quot;=\u0026gt;\u0026quot;Create\u0026quot;, \u0026quot;cancel\u0026quot;=\u0026gt;\u0026quot;Return to Store\u0026quot;, \u0026quot;accepts_marketing_checkbox_label\u0026quot;=\u0026gt;\u0026quot;Keep me up to date on news and exclusive offers.\u0026quot;, \u0026quot;share_data\u0026quot;=\u0026gt;\u0026quot;I consent to my data being shared with 3rd parties\u0026quot;, \u0026quot;unexpected_error\u0026quot;=\u0026gt;\u0026quot;There was a problem processing your request, please try again later.\u0026quot;, \u0026quot;birthday\u0026quot;=\u0026gt;\u0026quot;Birthday\u0026quot;}}","homepage":"{\u0026quot;hero_carousel\u0026quot;=\u0026gt;{\u0026quot;pause_video\u0026quot;=\u0026gt;\u0026quot;Pause video\u0026quot;, \u0026quot;mute_video\u0026quot;=\u0026gt;\u0026quot;Mute video\u0026quot;}, \u0026quot;onboarding\u0026quot;=\u0026gt;{\u0026quot;blog_title\u0026quot;=\u0026gt;\u0026quot;Your post\u0026#39;s title\u0026quot;, \u0026quot;blog_excerpt\u0026quot;=\u0026gt;\u0026quot;Your store hasn’t published any blog posts yet. A blog can be used to talk about new product launches, tips, or other news you want to share with your customers. You can check out Shopify’s ecommerce blog for inspiration and advice for your own store and blog.\u0026quot;, \u0026quot;blog_author\u0026quot;=\u0026gt;\u0026quot;Author name\u0026quot;, \u0026quot;product_title\u0026quot;=\u0026gt;\u0026quot;Example Product Title\u0026quot;, \u0026quot;collection_title\u0026quot;=\u0026gt;\u0026quot;Example Collection Title\u0026quot;, \u0026quot;no_content\u0026quot;=\u0026gt;\u0026quot;This section doesn’t currently include any content. Add content to this section using the sidebar.\u0026quot;}}","layout":"{\u0026quot;cart\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Cart\u0026quot;, \u0026quot;items_count\u0026quot;=\u0026gt;{\u0026quot;one\u0026quot;=\u0026gt;\u0026quot;item\u0026quot;, \u0026quot;other\u0026quot;=\u0026gt;\u0026quot;items\u0026quot;}}, \u0026quot;general\u0026quot;=\u0026gt;{\u0026quot;dismiss_dialog\u0026quot;=\u0026gt;\u0026quot;Close\u0026quot;}, \u0026quot;navigation\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Navigation\u0026quot;, \u0026quot;close\u0026quot;=\u0026gt;\u0026quot;Close navigation\u0026quot;}, \u0026quot;customer\u0026quot;=\u0026gt;{\u0026quot;account\u0026quot;=\u0026gt;\u0026quot;Account\u0026quot;, \u0026quot;logged_in_as_html\u0026quot;=\u0026gt;\u0026quot;Logged in as {{ first_name }}\u0026quot;, \u0026quot;log_out\u0026quot;=\u0026gt;\u0026quot;Log out\u0026quot;, \u0026quot;log_in\u0026quot;=\u0026gt;\u0026quot;Log in\u0026quot;, \u0026quot;create_account\u0026quot;=\u0026gt;\u0026quot;Create account\u0026quot;}, \u0026quot;footer\u0026quot;=\u0026gt;{\u0026quot;social_platform\u0026quot;=\u0026gt;\u0026quot;{{ name }} on {{ platform }}\u0026quot;, \u0026quot;copyright\u0026quot;=\u0026gt;\u0026quot;Copyright\u0026quot;, \u0026quot;payment_methods\u0026quot;=\u0026gt;\u0026quot;Payment methods accepted\u0026quot;}}","products":"{&quot;product&quot;=&gt;{\u0026quot;regular_price\u0026quot;=\u0026gt;\u0026quot;Regular price\u0026quot;, \u0026quot;sold_out\u0026quot;=\u0026gt;\u0026quot;Sold Out\u0026quot;, \u0026quot;unavailable\u0026quot;=\u0026gt;\u0026quot;Unavailable\u0026quot;, \u0026quot;on_sale\u0026quot;=\u0026gt;\u0026quot;On Sale\u0026quot;, \u0026quot;on_sale_from_html\u0026quot;=\u0026gt;\u0026quot;On Sale from {{ price }}\u0026quot;, \u0026quot;from_text_html\u0026quot;=\u0026gt;\u0026quot;From {{ price }}\u0026quot;, \u0026quot;quantity\u0026quot;=\u0026gt;\u0026quot;Quantity\u0026quot;, \u0026quot;add_to_cart\u0026quot;=\u0026gt;\u0026quot;Add to Cart\u0026quot;, \u0026quot;loading\u0026quot;=\u0026gt;\u0026quot;Loading\u0026quot;, \u0026quot;no_stock_error\u0026quot;=\u0026gt;\u0026quot;There are not enough items in stock, we added the rest of the inventory to your cart.\u0026quot;, \u0026quot;ingredients_label\u0026quot;=\u0026gt;\u0026quot;Ingredients\u0026quot;, \u0026quot;ingredients_placeholder\u0026quot;=\u0026gt;\u0026quot;Consectetur, adipiscing, elit, sed, doeiusmod, tempo, incidunt, lorem, ipsum, dolor, sit, amet\u0026quot;, \u0026quot;instructions_label\u0026quot;=\u0026gt;\u0026quot;Storage Instructions for Nationwide Delivery\u0026quot;, \u0026quot;instructions_placeholder\u0026quot;=\u0026gt;\u0026quot;Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\u0026quot;, \u0026quot;additional_info_label\u0026quot;=\u0026gt;\u0026quot;Allergens\u0026quot;, \u0026quot;additional_info_placeholder\u0026quot;=\u0026gt;\u0026quot;Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\u0026quot;, \u0026quot;share_label\u0026quot;=\u0026gt;\u0026quot;Share\u0026quot;, \u0026quot;breadcrumb_all_products\u0026quot;=\u0026gt;\u0026quot;All Products\u0026quot;, \u0026quot;breadcrumb_our_products\u0026quot;=\u0026gt;\u0026quot;Our Products\u0026quot;, \u0026quot;breadcrumb_last_viewed\u0026quot;=\u0026gt;\u0026quot;Last Viewed Collection\u0026quot;, \u0026quot;show_more\u0026quot;=\u0026gt;\u0026quot;Show More\u0026quot;, \u0026quot;show_less\u0026quot;=\u0026gt;\u0026quot;Show Less\u0026quot;, \u0026quot;price_starting_at\u0026quot;=\u0026gt;\u0026quot;Starting at\u0026quot;, \u0026quot;gc_customize_message\u0026quot;=\u0026gt;\u0026quot;Customize your E-Gift Card (Optional)\u0026quot;, \u0026quot;external_purchase_cta\u0026quot;=\u0026gt;\u0026quot;Shop Now\u0026quot;, \u0026quot;skip_to_product_info\u0026quot;=\u0026gt;\u0026quot;Skip to product options\u0026quot;, \u0026quot;removing_item\u0026quot;=\u0026gt;\u0026quot;Removing item - {{ item }}\u0026quot;}}","gift_cards":"{&quot;issued&quot;=&gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Here\u0026#39;s your {{ value }} gift card for {{ shop }}!\u0026quot;, \u0026quot;subtext\u0026quot;=\u0026gt;\u0026quot;Here\u0026#39;s your gift card!\u0026quot;, \u0026quot;disabled\u0026quot;=\u0026gt;\u0026quot;Disabled\u0026quot;, \u0026quot;expired\u0026quot;=\u0026gt;\u0026quot;Expired on {{ expiry }}\u0026quot;, \u0026quot;active\u0026quot;=\u0026gt;\u0026quot;Expires on {{ expiry }}\u0026quot;, \u0026quot;redeem\u0026quot;=\u0026gt;\u0026quot;Use this code at checkout to redeem your gift card\u0026quot;, \u0026quot;shop_link\u0026quot;=\u0026gt;\u0026quot;Start shopping\u0026quot;, \u0026quot;print\u0026quot;=\u0026gt;\u0026quot;Print\u0026quot;, \u0026quot;remaining_html\u0026quot;=\u0026gt;\u0026quot;{{ balance }} left\u0026quot;, \u0026quot;add_to_apple_wallet\u0026quot;=\u0026gt;\u0026quot;Add to Apple Wallet\u0026quot;, \u0026quot;initial_value\u0026quot;=\u0026gt;\u0026quot;Gift card value: {{ value }}\u0026quot;}}","date_formats":"{\u0026quot;month_day_year\u0026quot;=\u0026gt;\u0026quot;%B %d, %Y\u0026quot;}","region_redirect":"{\u0026quot;modal\u0026quot;=\u0026gt;{\u0026quot;title\u0026quot;=\u0026gt;\u0026quot;Welcome!\u0026quot;, \u0026quot;intro\u0026quot;=\u0026gt;\u0026quot;It looks like you\u0026#39;re located in:\u0026quot;, \u0026quot;question_start\u0026quot;=\u0026gt;\u0026quot;Would you like to visit\u0026quot;, \u0026quot;question_end\u0026quot;=\u0026gt;\u0026quot;instead?\u0026quot;, \u0026quot;yes\u0026quot;=\u0026gt;\u0026quot;Yes, take me there!\u0026quot;, \u0026quot;no\u0026quot;=\u0026gt;\u0026quot;No, I\u0026#39;ll stay here\u0026quot;}}","footer":"{\u0026quot;footer_header\u0026quot;=\u0026gt;\u0026quot;Have a question?\u0026quot;, \u0026quot;footer_message\u0026quot;=\u0026gt;\u0026quot;We\u0026#39;re always here to lend a helping hand.\u0026quot;, \u0026quot;footer_store_hours\u0026quot;=\u0026gt;\u0026quot;Consumer Care Team hours are Monday-Friday, 9am - 5pm EST\u0026quot;, \u0026quot;footer_email_message\u0026quot;=\u0026gt;\u0026quot;Email us at\u0026quot;, \u0026quot;footer_call_message\u0026quot;=\u0026gt;\u0026quot;Call us at\u0026quot;, \u0026quot;footer_legal\u0026quot;=\u0026gt;\u0026quot;LEGAL COPY - LOREM IPSUM SIT DOLOR\u0026quot;, \u0026quot;subscribed_to_newsletter\u0026quot;=\u0026gt;\u0026quot;Thank you for subscribing to our newsletter!\u0026quot;}","collections_carousel":"{\u0026quot;view_all_cta\u0026quot;=\u0026gt;\u0026quot;View More\u0026quot;}","stores":"{\u0026quot;information_label\u0026quot;=\u0026gt;\u0026quot;Store Information\u0026quot;, \u0026quot;hours_of_operation_label\u0026quot;=\u0026gt;\u0026quot;Hours of Operation\u0026quot;, \u0026quot;same_day_delivery_label\u0026quot;=\u0026gt;\u0026quot;For same day delivery,\u0026quot;}","corporate_gifting":"{\u0026quot;form\u0026quot;=\u0026gt;{\u0026quot;name\u0026quot;=\u0026gt;\u0026quot;Name\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;phone\u0026quot;=\u0026gt;\u0026quot;Phone Number\u0026quot;, \u0026quot;message\u0026quot;=\u0026gt;\u0026quot;Message\u0026quot;, \u0026quot;send\u0026quot;=\u0026gt;\u0026quot;Send\u0026quot;, \u0026quot;post_success_title\u0026quot;=\u0026gt;\u0026quot;Message Received\u0026quot;, \u0026quot;post_success\u0026quot;=\u0026gt;\u0026quot;Thanks for contacting us. We\u0026#39;ll get back to you as soon as possible.\u0026quot;, \u0026quot;contact_information\u0026quot;=\u0026gt;\u0026quot;Contact Information\u0026quot;, \u0026quot;details\u0026quot;=\u0026gt;\u0026quot;Details\u0026quot;, \u0026quot;download_heading\u0026quot;=\u0026gt;\u0026quot;Corporate Order Form\u0026quot;, \u0026quot;download_instruction_1\u0026quot;=\u0026gt;\u0026quot;1) Click the button below to download the Corporate Order Form.\u0026quot;, \u0026quot;download_instruction_2\u0026quot;=\u0026gt;\u0026quot;2) Fill out the Corporate Order Form, then attach it below.\u0026quot;, \u0026quot;location\u0026quot;=\u0026gt;\u0026quot;Location\u0026quot;, \u0026quot;number_of_guests\u0026quot;=\u0026gt;\u0026quot;Number of Recipients\u0026quot;, \u0026quot;per_guest_price_point\u0026quot;=\u0026gt;\u0026quot;Price Point Per Recipient\u0026quot;, \u0026quot;receive_by_date\u0026quot;=\u0026gt;\u0026quot;Receive By Date\u0026quot;, \u0026quot;types_of_dessert\u0026quot;=\u0026gt;\u0026quot;Types of Dessert\u0026quot;, \u0026quot;additional_comments\u0026quot;=\u0026gt;\u0026quot;Additional Comments\u0026quot;, \u0026quot;post_success_heading\u0026quot;=\u0026gt;\u0026quot;Thanks for getting in touch!\u0026quot;, \u0026quot;post_success_html\u0026quot;=\u0026gt;\u0026quot;A member of our team will reach out to you soon to finalize your order.\u0026quot;, \u0026quot;post_success_cta\u0026quot;=\u0026gt;\u0026quot;Contact Us\u0026quot;}}","whole_sale":"{\u0026quot;form\u0026quot;=\u0026gt;{\u0026quot;first_name\u0026quot;=\u0026gt;\u0026quot;First Name\u0026quot;, \u0026quot;last_name\u0026quot;=\u0026gt;\u0026quot;Last Name\u0026quot;, \u0026quot;email\u0026quot;=\u0026gt;\u0026quot;Email\u0026quot;, \u0026quot;phone\u0026quot;=\u0026gt;\u0026quot;Phone Number\u0026quot;, \u0026quot;company\u0026quot;=\u0026gt;\u0026quot;Company\u0026quot;, \u0026quot;post_success_title\u0026quot;=\u0026gt;\u0026quot;Message Received\u0026quot;, \u0026quot;post_success\u0026quot;=\u0026gt;\u0026quot;Thanks for contacting us. We\u0026#39;ll get back to you as soon as possible.\u0026quot;, \u0026quot;address_line_1\u0026quot;=\u0026gt;\u0026quot;Address Line 1\u0026quot;, \u0026quot;address_line_2\u0026quot;=\u0026gt;\u0026quot;Address Line 2\u0026quot;, \u0026quot;city\u0026quot;=\u0026gt;\u0026quot;City\u0026quot;, \u0026quot;state\u0026quot;=\u0026gt;\u0026quot;State\u0026quot;, \u0026quot;zipcode\u0026quot;=\u0026gt;\u0026quot;Zip\u0026quot;, \u0026quot;busine

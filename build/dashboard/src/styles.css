@@ -1,0 +1,285 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   PENTAHOUSE — THE NEWSROOM OF SALES
+   Aesthetic: warm-paper editorial · terracotta primary ·
+   Fraunces display · Manrope body · JetBrains Mono numerals
+   ============================================================ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-display: var(--font-display-stack);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Type stacks — distinctive, not Inter */
+  --font-display-stack: 'Fraunces', 'Iowan Old Style', 'Apple Garamond', 'Georgia', serif;
+  --font-sans-stack: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono-stack: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  --font-devanagari-stack: 'Noto Serif Devanagari', 'Iowan Old Style', serif;
+
+  /* WARM PAPER LIGHT THEME */
+  --background: oklch(0.974 0.012 87);
+  --foreground: oklch(0.20 0.013 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.20 0.013 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.20 0.013 60);
+
+  --primary: oklch(0.555 0.165 35);            /* terracotta */
+  --primary-foreground: oklch(0.985 0.006 87);
+
+  --secondary: oklch(0.945 0.014 85);
+  --secondary-foreground: oklch(0.22 0.013 60);
+
+  --muted: oklch(0.945 0.014 85);
+  --muted-foreground: oklch(0.477 0.014 60);
+
+  --accent: oklch(0.65 0.137 65);              /* deep saffron */
+  --accent-foreground: oklch(0.985 0.006 87);
+
+  --destructive: oklch(0.55 0.18 25);
+  --destructive-foreground: oklch(0.985 0.006 87);
+
+  --warning: oklch(0.72 0.16 75);
+  --warning-foreground: oklch(0.22 0.04 60);
+
+  /* WhatsApp emerald — reserved for Approve / Sent */
+  --success: oklch(0.62 0.155 152);
+  --success-foreground: oklch(0.985 0.006 87);
+
+  --border: oklch(0.91 0.013 80);
+  --input: oklch(0.91 0.013 80);
+  --ring: oklch(0.555 0.165 35);
+
+  --chart-1: oklch(0.555 0.165 35);
+  --chart-2: oklch(0.65 0.137 65);
+  --chart-3: oklch(0.49 0.092 152);
+  --chart-4: oklch(0.55 0.18 25);
+  --chart-5: oklch(0.45 0.06 240);
+
+  --sidebar: oklch(0.96 0.013 85);
+  --sidebar-foreground: oklch(0.22 0.013 60);
+  --sidebar-primary: oklch(0.555 0.165 35);
+  --sidebar-primary-foreground: oklch(0.985 0.006 87);
+  --sidebar-accent: oklch(0.92 0.014 80);
+  --sidebar-accent-foreground: oklch(0.20 0.013 60);
+  --sidebar-border: oklch(0.88 0.014 80);
+  --sidebar-ring: oklch(0.555 0.165 35);
+}
+
+.dark {
+  --background: oklch(0.17 0.009 60);
+  --foreground: oklch(0.93 0.014 85);
+  --card: oklch(0.22 0.011 60);
+  --card-foreground: oklch(0.93 0.014 85);
+  --popover: oklch(0.22 0.011 60);
+  --popover-foreground: oklch(0.93 0.014 85);
+
+  --primary: oklch(0.66 0.18 38);
+  --primary-foreground: oklch(0.12 0.013 35);
+
+  --secondary: oklch(0.27 0.012 60);
+  --secondary-foreground: oklch(0.93 0.014 85);
+
+  --muted: oklch(0.27 0.012 60);
+  --muted-foreground: oklch(0.65 0.014 70);
+
+  --accent: oklch(0.72 0.155 70);
+  --accent-foreground: oklch(0.12 0.013 35);
+
+  --destructive: oklch(0.65 0.20 25);
+  --destructive-foreground: oklch(0.985 0.006 87);
+
+  --warning: oklch(0.78 0.17 75);
+  --warning-foreground: oklch(0.18 0.04 60);
+
+  --success: oklch(0.68 0.16 152);
+  --success-foreground: oklch(0.12 0.013 152);
+
+  --border: oklch(1 0.011 80 / 12%);
+  --input: oklch(1 0.011 80 / 14%);
+  --ring: oklch(0.66 0.18 38);
+
+  --chart-1: oklch(0.66 0.18 38);
+  --chart-2: oklch(0.72 0.155 70);
+  --chart-3: oklch(0.68 0.16 152);
+  --chart-4: oklch(0.65 0.20 25);
+  --chart-5: oklch(0.62 0.10 240);
+
+  --sidebar: oklch(0.20 0.011 60);
+  --sidebar-foreground: oklch(0.93 0.014 85);
+  --sidebar-primary: oklch(0.66 0.18 38);
+  --sidebar-primary-foreground: oklch(0.12 0.013 35);
+  --sidebar-accent: oklch(0.27 0.012 60);
+  --sidebar-accent-foreground: oklch(0.93 0.014 85);
+  --sidebar-border: oklch(1 0.011 80 / 12%);
+  --sidebar-ring: oklch(0.66 0.18 38);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans-stack);
+    font-feature-settings: "ss01", "cv02", "cv11";
+    font-variant-numeric: tabular-nums slashed-zero;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Paper grain — inline SVG noise, no extra request */
+  body {
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-repeat: repeat;
+  }
+  .dark body {
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* Display family — used by h1/h2 and explicit .font-display nodes */
+  h1, h2, .font-display {
+    font-family: var(--font-display-stack);
+    font-feature-settings: "ss01", "ss02";
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 30, "WONK" 0;
+    letter-spacing: -0.018em;
+  }
+  h1 { font-weight: 500; }
+  h2 { font-weight: 500; }
+
+  /* Numerals lean mono when they *are* a fact */
+  .tabular-nums {
+    font-family: var(--font-mono-stack);
+    font-feature-settings: "tnum", "zero";
+  }
+
+  /* Hindi gets serif Devanagari */
+  :lang(hi), [lang="hi"], .font-devanagari {
+    font-family: var(--font-devanagari-stack);
+  }
+
+  /* Eyebrow — newspaper-section label */
+  .eyebrow {
+    font-family: var(--font-sans-stack);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* Inline editorial rule */
+  .rule { border-top: 1px solid var(--color-border); }
+}
+
+/* ============================================================
+   MOTION — one orchestrated reveal per page, not scattered confetti
+   ============================================================ */
+@keyframes pent-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pent-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pent-press {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+[data-anim="rise"] {
+  animation: pent-fade-up 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+[data-anim="fade"] {
+  animation: pent-fade-in 300ms ease-out backwards;
+}
+[data-stagger="1"] { animation-delay: 0ms; }
+[data-stagger="2"] { animation-delay: 70ms; }
+[data-stagger="3"] { animation-delay: 140ms; }
+[data-stagger="4"] { animation-delay: 210ms; }
+[data-stagger="5"] { animation-delay: 280ms; }
+[data-stagger="6"] { animation-delay: 350ms; }
+[data-stagger="7"] { animation-delay: 420ms; }
+
+.btn-press:active { animation: pent-press 220ms ease-out; }
+
+.action-card {
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1),
+              border-color 180ms ease,
+              box-shadow 180ms ease;
+}
+.action-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary);
+}
+
+/* Quiet on-brand scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-track { background: transparent; }

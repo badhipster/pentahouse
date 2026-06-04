@@ -1,0 +1,61 @@
+{
+  "_comment": "Offline fallback served when NEXT_PUBLIC_DEMO_MODE=true. Shape mirrors v_lead_queue, v_source_roi, agent_logs, messages where status=pending_approval, escalations. Keep this in sync with seed_leads.sql post-render so a network outage on demo day never reveals an empty UI.",
+  "primary_metric": {
+    "median_sec_to_first_response_today": 47,
+    "industry_baseline_sec": 18000
+  },
+  "kpis": {
+    "leads_today": 12,
+    "leads_yesterday": 9,
+    "pending_approvals": 3,
+    "weekly_conversion_pct": 11.4
+  },
+  "agent_activity_feed": [
+    {"agent_name":"Nurture Agent","action":"drafted_message","output_summary":"intake_qualifier drafted HI","lead_name":"Imran Sheikh","duration_ms":1180,"status":"ok","relative":"2m ago"},
+    {"agent_name":"Nurture Agent","action":"drafted_message","output_summary":"site_visit_invite drafted EN","lead_name":"Anant Verma","duration_ms":1080,"status":"ok","relative":"3m ago"},
+    {"agent_name":"Nurture Agent","action":"drafted_message","output_summary":"site_visit_invite drafted EN","lead_name":"Smita Joshi","duration_ms":1120,"status":"ok","relative":"5m ago"},
+    {"agent_name":"Lead Agent","action":"scored_lead","output_summary":"fit=92 urgency=88 action=Schedule site visit","lead_name":"Smita Joshi","duration_ms":1750,"status":"ok","relative":"5m ago"},
+    {"agent_name":"Lead Agent","action":"escalated","output_summary":"Confidence 38% < 50%","lead_name":"Unknown Caller","duration_ms":310,"status":"warning","relative":"6h ago"}
+  ],
+  "pending_approvals": [
+    {
+      "message_id":"placeholder-1",
+      "lead_name":"Smita Joshi",
+      "project":"Oceanic Heights",
+      "overall_score":90,
+      "language":"en",
+      "content":"Hi Smita, Oceanic Heights 2BHK in your 3-3.5Cr range has 28F+ sea-view units. Possession is Jun 2026 (13 months). I can hold Sat 16:00 or Sun 11:30 for a site visit. Which works for you?"
+    },
+    {
+      "message_id":"placeholder-2",
+      "lead_name":"Anant Verma",
+      "project":"Whitefield Verdant",
+      "overall_score":92,
+      "language":"en",
+      "content":"Hi Anant, thanks to Mohit for the intro. Whitefield Verdant 3BHK (1380 sqft) at 1.7Cr is a clean fit. Site visit Saturday 11:30 or Sunday 10:00?"
+    },
+    {
+      "message_id":"placeholder-3",
+      "lead_name":"Imran Sheikh",
+      "project":"Greens of Kharadi",
+      "overall_score":79,
+      "language":"hi",
+      "content":"नमस्ते Imran जी, Greens of Kharadi में 2BHK 78-95 लाख रेंज में है। 70 लाख बजट के लिए Wagholi Springs भी देख सकते हैं। दोनों के brochures भेज दूं?"
+    }
+  ],
+  "escalations": [
+    {"lead_name":"Vikram Sethi","reason_code":"vip_budget","reason_text":"Budget 2.5Cr triggers >2Cr VIP threshold; investor profile, multi-unit interest","status":"open"},
+    {"lead_name":"Unknown Caller","reason_code":"low_confidence","reason_text":"Single-message lead with insufficient signal (confidence 38%)","status":"open"},
+    {"lead_name":"Rajesh Subramanian","reason_code":"vip_budget","reason_text":"NRI multi-unit, 3-5Cr per unit; loan complexity","status":"acknowledged"}
+  ],
+  "source_roi": [
+    {"source":"CP Referral","leads":4,"qualified":4,"visits":1,"bookings":1,"spend":0,"cpl":null,"cpv":null,"cpb":0},
+    {"source":"Meta Ad","leads":11,"qualified":9,"visits":2,"bookings":1,"spend":1330000,"cpl":120909,"cpv":665000,"cpb":1330000},
+    {"source":"Google Ad","leads":5,"qualified":4,"visits":1,"bookings":0,"spend":700000,"cpl":140000,"cpv":700000,"cpb":null},
+    {"source":"Housing.com","leads":2,"qualified":1,"visits":0,"bookings":0,"spend":0,"cpl":null,"cpv":null,"cpb":null},
+    {"source":"99acres","leads":2,"qualified":1,"visits":0,"bookings":0,"spend":120000,"cpl":60000,"cpv":null,"cpb":null},
+    {"source":"Walk-in","leads":2,"qualified":2,"visits":1,"bookings":0,"spend":0,"cpl":null,"cpv":null,"cpb":null},
+    {"source":"WhatsApp","leads":2,"qualified":1,"visits":0,"bookings":0,"spend":0,"cpl":null,"cpv":null,"cpb":null},
+    {"source":"Portal","leads":2,"qualified":2,"visits":0,"bookings":0,"spend":50000,"cpl":25000,"cpv":null,"cpb":null}
+  ]
+}

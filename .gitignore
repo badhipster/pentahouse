@@ -1,0 +1,47 @@
+# Node / Vite
+node_modules/
+dist/
+build/dashboard/.vinxi/
+build/dashboard/.output/
+.tsbuildinfo
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.history/
+
+# Env files with secrets — keep templates only
+.env
+.env.*.local
+# Keep .env.local for dashboard since it only contains the public Supabase anon key + localhost URLs
+!build/dashboard/.env.local
+
+# n8n local data (workflows are tracked under build/n8n/*.json)
+~/.n8n/
+.n8n/
+node_modules/
+
+# Python virtualenvs
+venv/
+__pycache__/
+*.pyc
+
+# Temp + scratch
+tmp/
+.tmp/
+*.tmp
+*.bak
+
+# Screenshots (you may want to keep some — uncomment to track)
+screenshots/
+
+# Personal claude memory (already under user dir, not project)
+.claude/

@@ -1,0 +1,467 @@
+{
+  "name": "Conversion Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "visit-outcome",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-visit",
+      "name": "Webhook: Visit Outcome",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "notes": "POST /webhook/visit-outcome. Body: { visit_id, status (Completed|No-Show|Rescheduled|Cancelled), post_visit_notes?, unit_number?, booking_amount? }. The dashboard's Visits screen posts here when a manager marks a visit's outcome."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "visits",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $json.body.visit_id }}" }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "status",            "fieldValue": "={{ $json.body.status }}" },
+            { "fieldId": "post_visit_notes",  "fieldValue": "={{ $json.body.post_visit_notes }}" },
+            { "fieldId": "completed_at",      "fieldValue": "={{ $json.body.status === 'Completed' ? new Date().toISOString() : null }}" }
+          ]
+        }
+      },
+      "id": "sb-update-visit",
+      "name": "Supabase: Update Visit",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [480, 300],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook: Visit Outcome').first().json.body.status }}",
+              "rightValue": "Completed",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-completed",
+      "name": "IF: Status = Completed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "visits",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Webhook: Visit Outcome').first().json.body.visit_id }}" }
+          ]
+        }
+      },
+      "id": "sb-get-visit",
+      "name": "Supabase: Get Visit + Lead",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [960, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      },
+      "notes": "Pulls the now-updated visit row. Lead + property info via separate fetches if needed (kept simple for v1)."
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "key", "value": "={{ $env.GEMINI_API_KEY }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"systemInstruction\": {\n    \"parts\": [{ \"text\": \"You are the Objection Extraction Agent. Read free-text post-visit notes and return a single JSON object with these fields: objections (array of objects, each with {category, severity, evidence}. Category from this closed set: price, location, configuration, decision-maker, competitor, possession, financing, other. Severity from: deal_breaker, negotiation, minor. Evidence: a short quote or paraphrase from the notes that justifies the severity tag, max 80 chars). sentiment (positive|neutral|negative). summary (<=200 chars). next_step_hint (<=140 chars). Order objections by severity then salience. No prose, no markdown fences.\" }]\n  },\n  \"contents\": [{\n    \"role\": \"user\",\n    \"parts\": [{\n      \"text\": \"POST-VISIT NOTES:\\n{{ $('Webhook: Visit Outcome').item.json.body.post_visit_notes }}\\n\\nExtract objections (with severity), sentiment, summary, next step. Return ONLY the JSON object.\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "gemini-objections",
+      "name": "Gemini: Extract Objections",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2 (audit items 5.1, 5.5, Day 5): per-objection severity, booking sanity check, trace_id.\nconst geminiResp = $('Gemini: Extract Objections').first().json;\nconst allowedCategories = ['price','location','configuration','decision-maker','competitor','possession','financing','other'];\nconst allowedSeverities = ['deal_breaker','negotiation','minor'];\n\nlet result;\ntry {\n  const text = geminiResp?.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  result = JSON.parse(text);\n} catch (e) {\n  result = { objections: [], sentiment: 'neutral', summary: 'Gemini parse failure: ' + e.message, next_step_hint: 'Manual review' };\n}\n\n// v2: objections are now structured {category, severity, evidence}. Be tolerant of legacy string format from older prompt versions.\nconst rawObjs = Array.isArray(result.objections) ? result.objections : [];\nconst objectionsStructured = rawObjs.map(o => {\n  if (typeof o === 'string') {\n    return allowedCategories.includes(o) ? { category: o, severity: 'negotiation', evidence: null } : null;\n  }\n  const cat = allowedCategories.includes(o?.category) ? o.category : null;\n  const sev = allowedSeverities.includes(o?.severity) ? o.severity : 'negotiation';\n  if (!cat) return null;\n  return { category: cat, severity: sev, evidence: (o.evidence || '').slice(0, 80) || null };\n}).filter(Boolean).slice(0, 5);\n\n// Backwards-compatible flat array for the existing `visits.objections TEXT[]` column.\nconst objectionsFlat = objectionsStructured.map(o => o.category);\n\nconst sentiment = ['positive','neutral','negative'].includes(result.sentiment) ? result.sentiment : 'neutral';\n\n// v2: booking sanity check (audit 5.5). booking_amount should be 10%-50% of property price.\nconst webhookBody = $('Webhook: Visit Outcome').first().json.body;\nconst visit = $('Supabase: Get Visit + Lead').first().json;\nconst bookingAmount = Number(webhookBody.booking_amount || 0);\nconst priceMin = Number(visit?.property?.price_min_lakhs || visit?.price_min_lakhs || 0) * 100000; // lakhs to INR\nconst priceMax = Number(visit?.property?.price_max_lakhs || visit?.price_max_lakhs || 0) * 100000;\nconst priceMid = priceMax > 0 ? (priceMin + priceMax) / 2 : priceMin;\n\nlet bookingSanity = { applies: bookingAmount > 0, passed: true, reason: null, ratio: null };\nif (bookingAmount > 0 && priceMin > 0) {\n  const ratio = bookingAmount / priceMid;\n  bookingSanity.ratio = Number(ratio.toFixed(3));\n  if (ratio < 0.10) {\n    bookingSanity.passed = false;\n    bookingSanity.reason = 'token_too_low'; // < 10% of price — likely a typo or partial payment misclassified as booking\n  } else if (ratio > 0.50) {\n    bookingSanity.passed = false;\n    bookingSanity.reason = 'token_too_high'; // > 50% — unusual for an initial booking, flag for review\n  }\n}\n\n// v2: trace_id continuity. Conversion Agent is a downstream hop, so we generate a fresh span_id but propagate\n// the lead's existing trace_id when present. Falls back to a new UUID if this is the first event for the lead.\nconst traceId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; const v = c==='x' ? r : (r&0x3|0x8); return v.toString(16); }));\n\nreturn [{\n  json: {\n    visit_id: webhookBody.visit_id,\n    lead_id: $('Supabase: Get Visit + Lead').first().json.lead_id,\n    property_id: $('Supabase: Get Visit + Lead').first().json.property_id,\n    objections: objectionsFlat,\n    objections_structured: objectionsStructured,\n    has_deal_breaker: objectionsStructured.some(o => o.severity === 'deal_breaker'),\n    sentiment,\n    summary: (result.summary || '').slice(0, 200),\n    next_step_hint: (result.next_step_hint || '').slice(0, 140),\n    booking_sanity: bookingSanity,\n    traceId,\n    promptVersion: 'objection_extraction.v2',\n    modelUsed: 'gemini-2.5-flash'\n  }\n}];"
+      },
+      "id": "code-parse-objections",
+      "name": "Code: Parse Objections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "visits",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $json.visit_id }}" }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "objections",  "fieldValue": "={{ $json.objections }}" },
+            { "fieldId": "sentiment",   "fieldValue": "={{ $json.sentiment }}" },
+            { "fieldId": "next_action", "fieldValue": "={{ $json.next_step_hint }}" }
+          ]
+        }
+      },
+      "id": "sb-update-objections",
+      "name": "Supabase: Save Objections",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1680, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "event_name",     "fieldValue": "VISIT_COMPLETED" },
+            { "fieldId": "source_agent",   "fieldValue": "Conversion Agent" },
+            { "fieldId": "lead_id",        "fieldValue": "={{ $('Code: Parse Objections').first().json.lead_id }}" },
+            { "fieldId": "property_id",    "fieldValue": "={{ $('Code: Parse Objections').first().json.property_id }}" },
+            { "fieldId": "trace_id",       "fieldValue": "={{ $('Code: Parse Objections').first().json.traceId }}" },
+            { "fieldId": "model_used",     "fieldValue": "={{ $('Code: Parse Objections').first().json.modelUsed }}" },
+            { "fieldId": "prompt_version", "fieldValue": "={{ $('Code: Parse Objections').first().json.promptVersion }}" },
+            { "fieldId": "payload",        "fieldValue": "={{ JSON.stringify({ visit_id: $('Code: Parse Objections').first().json.visit_id, objections: $('Code: Parse Objections').first().json.objections, objections_structured: $('Code: Parse Objections').first().json.objections_structured, has_deal_breaker: $('Code: Parse Objections').first().json.has_deal_breaker, sentiment: $('Code: Parse Objections').first().json.sentiment, summary: $('Code: Parse Objections').first().json.summary, next_step_hint: $('Code: Parse Objections').first().json.next_step_hint }) }}" }
+          ]
+        }
+      },
+      "id": "sb-event-completed",
+      "name": "Supabase: Emit VISIT_COMPLETED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1920, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($('Webhook: Visit Outcome').first().json.body.booking_amount) }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-booking",
+      "name": "IF: Booking Amount Present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2160, 200],
+      "notes": "If the manager included a booking_amount, this visit also closed a booking. Branch to create booking row."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "bookings",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "lead_id",            "fieldValue": "={{ $('Code: Parse Objections').first().json.lead_id }}" },
+            { "fieldId": "property_id",        "fieldValue": "={{ $('Code: Parse Objections').first().json.property_id }}" },
+            { "fieldId": "visit_id",           "fieldValue": "={{ $('Code: Parse Objections').first().json.visit_id }}" },
+            { "fieldId": "unit_number",        "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.unit_number }}" },
+            { "fieldId": "booking_amount",     "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.booking_amount }}" },
+            { "fieldId": "source_attribution", "fieldValue": "Closed-loop chain built post-insert via attribution function" }
+          ]
+        }
+      },
+      "id": "sb-insert-booking",
+      "name": "Supabase: Insert Booking",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2400, 100],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "event_name",     "fieldValue": "BOOKING_MADE" },
+            { "fieldId": "trace_id",       "fieldValue": "={{ $('Code: Parse Objections').first().json.traceId }}" },
+            { "fieldId": "source_agent", "fieldValue": "Conversion Agent" },
+            { "fieldId": "lead_id",      "fieldValue": "={{ $('Code: Parse Objections').first().json.lead_id }}" },
+            { "fieldId": "property_id",  "fieldValue": "={{ $('Code: Parse Objections').first().json.property_id }}" },
+            { "fieldId": "payload",        "fieldValue": "={{ JSON.stringify({ booking_id: $('Supabase: Insert Booking').first().json.id, amount: $('Webhook: Visit Outcome').first().json.body.booking_amount, unit: $('Webhook: Visit Outcome').first().json.body.unit_number, sanity_check: $('Code: Parse Objections').first().json.booking_sanity, needs_review: !$('Code: Parse Objections').first().json.booking_sanity.passed }) }}" }
+          ]
+        }
+      },
+      "id": "sb-event-booking",
+      "name": "Supabase: Emit BOOKING_MADE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2640, 100],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook: Visit Outcome').first().json.body.status }}",
+              "rightValue": "No-Show",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-noshow",
+      "name": "IF: Status = No-Show",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "event_name",   "fieldValue": "VISIT_NO_SHOW" },
+            { "fieldId": "source_agent", "fieldValue": "Conversion Agent" },
+            { "fieldId": "payload",      "fieldValue": "={{ JSON.stringify({ visit_id: $('Webhook: Visit Outcome').first().json.body.visit_id }) }}" }
+          ]
+        }
+      },
+      "id": "sb-event-noshow",
+      "name": "Supabase: Emit VISIT_NO_SHOW",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1200, 400],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "agent_name",     "fieldValue": "Conversion Agent" },
+            { "fieldId": "action",         "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.status === 'Completed' ? 'extracted_objections' : ('visit_status_' + $('Webhook: Visit Outcome').first().json.body.status.toLowerCase().replace('-','_')) }}" },
+            { "fieldId": "input_summary",  "fieldValue": "={{ 'Visit ' + $('Webhook: Visit Outcome').first().json.body.visit_id + ', status ' + $('Webhook: Visit Outcome').first().json.body.status }}" },
+            { "fieldId": "output_summary", "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.status === 'Completed' ? ('objections=' + JSON.stringify($('Code: Parse Objections').first().json.objections) + ' sentiment=' + $('Code: Parse Objections').first().json.sentiment) : 'Status update logged' }}" },
+            { "fieldId": "status",         "fieldValue": "ok" }
+          ]
+        }
+      },
+      "id": "sb-log",
+      "name": "Supabase: Write Agent Log",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2880, 300],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, visit_id: $('Webhook: Visit Outcome').first().json.body.visit_id, status: $('Webhook: Visit Outcome').first().json.body.status, objections: $('Code: Parse Objections').first()?.json?.objections || [], sentiment: $('Code: Parse Objections').first()?.json?.sentiment || null } }}"
+      },
+      "id": "webhook-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3120, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $env.GSHEETS_OPS_SHEET_ID }}",
+        "sheetName": "Visits",
+        "options": {
+          "valueInputMode": "USER_ENTERED"
+        },
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "values": [
+            { "column": "visit_id",        "fieldValue": "={{ $('Code: Parse Objections').first().json.visit_id }}" },
+            { "column": "lead_id",         "fieldValue": "={{ $('Code: Parse Objections').first().json.lead_id }}" },
+            { "column": "lead_name",       "fieldValue": "={{ $('Supabase: Get Visit + Lead').first().json.lead_name || '' }}" },
+            { "column": "property_id",     "fieldValue": "={{ $('Code: Parse Objections').first().json.property_id }}" },
+            { "column": "project_name",    "fieldValue": "={{ $('Supabase: Get Visit + Lead').first().json.project_name || '' }}" },
+            { "column": "status",          "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.status }}" },
+            { "column": "sentiment",       "fieldValue": "={{ $('Code: Parse Objections').first().json.sentiment || '' }}" },
+            { "column": "objections",      "fieldValue": "={{ ($('Code: Parse Objections').first().json.objections || []).join(', ') }}" },
+            { "column": "has_deal_breaker","fieldValue": "={{ $('Code: Parse Objections').first().json.has_deal_breaker ? 'YES' : 'no' }}" },
+            { "column": "summary",         "fieldValue": "={{ $('Code: Parse Objections').first().json.summary || '' }}" },
+            { "column": "next_step",       "fieldValue": "={{ $('Code: Parse Objections').first().json.next_step_hint || '' }}" },
+            { "column": "logged_at",       "fieldValue": "={{ $now.toISO() }}" },
+            { "column": "trace_id",        "fieldValue": "={{ $('Code: Parse Objections').first().json.traceId || '' }}" }
+          ]
+        }
+      },
+      "id": "gsheet-append-visit",
+      "name": "Google Sheets: Append Visit",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2400, 500],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_AFTER_IMPORT", "name": "Google Sheets account" }
+      },
+      "notes": "Appends every processed visit to a shared 'Sales Ops Live Sheet' (env var GSHEETS_OPS_SHEET_ID). Sales head keeps the sheet open all day; this is her familiar interface. Requires headers Visits sheet to exist with the column names below. See docs/GSHEETS_SETUP.md."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "={{ $env.GSHEETS_OPS_SHEET_ID }}",
+        "sheetName": "Bookings",
+        "options": {
+          "valueInputMode": "USER_ENTERED"
+        },
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "values": [
+            { "column": "booking_id",         "fieldValue": "={{ $('Supabase: Insert Booking').first().json.id }}" },
+            { "column": "lead_id",            "fieldValue": "={{ $('Code: Parse Objections').first().json.lead_id }}" },
+            { "column": "lead_name",          "fieldValue": "={{ $('Supabase: Get Visit + Lead').first().json.lead_name || '' }}" },
+            { "column": "property_id",        "fieldValue": "={{ $('Code: Parse Objections').first().json.property_id }}" },
+            { "column": "project_name",       "fieldValue": "={{ $('Supabase: Get Visit + Lead').first().json.project_name || '' }}" },
+            { "column": "unit_number",        "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.unit_number || '' }}" },
+            { "column": "booking_amount_inr", "fieldValue": "={{ $('Webhook: Visit Outcome').first().json.body.booking_amount }}" },
+            { "column": "sanity_check",       "fieldValue": "={{ $('Code: Parse Objections').first().json.booking_sanity.passed ? 'PASS' : ('REVIEW (' + ($('Code: Parse Objections').first().json.booking_sanity.reason || 'unknown') + ')') }}" },
+            { "column": "needs_review",       "fieldValue": "={{ !$('Code: Parse Objections').first().json.booking_sanity.passed ? 'YES' : 'no' }}" },
+            { "column": "logged_at",          "fieldValue": "={{ $now.toISO() }}" },
+            { "column": "trace_id",           "fieldValue": "={{ $('Code: Parse Objections').first().json.traceId || '' }}" }
+          ]
+        }
+      },
+      "id": "gsheet-append-booking",
+      "name": "Google Sheets: Append Booking",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2880, 100],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_AFTER_IMPORT", "name": "Google Sheets account" }
+      },
+      "notes": "Appends every booking to the 'Bookings' tab. Sanity check flag carries through so the sales head sees REVIEW status on out-of-band amounts."
+    }
+  ],
+  "connections": {
+    "Webhook: Visit Outcome": {
+      "main": [[{ "node": "Supabase: Update Visit", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Update Visit": {
+      "main": [[{ "node": "IF: Status = Completed", "type": "main", "index": 0 }]]
+    },
+    "IF: Status = Completed": {
+      "main": [
+        [{ "node": "Supabase: Get Visit + Lead", "type": "main", "index": 0 }],
+        [{ "node": "IF: Status = No-Show",       "type": "main", "index": 0 }]
+      ]
+    },
+    "Supabase: Get Visit + Lead": {
+      "main": [[{ "node": "Gemini: Extract Objections", "type": "main", "index": 0 }]]
+    },
+    "Gemini: Extract Objections": {
+      "main": [[{ "node": "Code: Parse Objections", "type": "main", "index": 0 }]]
+    },
+    "Code: Parse Objections": {
+      "main": [[{ "node": "Supabase: Save Objections", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Save Objections": {
+      "main": [[
+        { "node": "Supabase: Emit VISIT_COMPLETED", "type": "main", "index": 0 },
+        { "node": "Google Sheets: Append Visit",   "type": "main", "index": 0 }
+      ]]
+    },
+    "Supabase: Emit VISIT_COMPLETED": {
+      "main": [[{ "node": "IF: Booking Amount Present?", "type": "main", "index": 0 }]]
+    },
+    "IF: Booking Amount Present?": {
+      "main": [
+        [{ "node": "Supabase: Insert Booking",   "type": "main", "index": 0 }],
+        [{ "node": "Supabase: Write Agent Log",  "type": "main", "index": 0 }]
+      ]
+    },
+    "Supabase: Insert Booking": {
+      "main": [[
+        { "node": "Supabase: Emit BOOKING_MADE",     "type": "main", "index": 0 },
+        { "node": "Google Sheets: Append Booking",  "type": "main", "index": 0 }
+      ]]
+    },
+    "Supabase: Emit BOOKING_MADE": {
+      "main": [[{ "node": "Supabase: Write Agent Log", "type": "main", "index": 0 }]]
+    },
+    "IF: Status = No-Show": {
+      "main": [
+        [{ "node": "Supabase: Emit VISIT_NO_SHOW", "type": "main", "index": 0 }],
+        [{ "node": "Supabase: Write Agent Log",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Supabase: Emit VISIT_NO_SHOW": {
+      "main": [[{ "node": "Supabase: Write Agent Log", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Write Agent Log": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "capstone" }, { "name": "conversion-agent" }]
+}

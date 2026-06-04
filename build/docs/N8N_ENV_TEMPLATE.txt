@@ -1,0 +1,44 @@
+# Pentahouse n8n environment variables
+# Copy this file to ~/.n8n/.env and fill in the values.
+# After saving, restart n8n: kill the existing `n8n start` and re-run it.
+
+# --- Already in use (from your existing setup) ---
+GEMINI_API_KEY=your_existing_gemini_key
+
+# --- Supabase (you already have these) ---
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+# Note: the workflows pull the service-role key from the n8n Supabase credential,
+# NOT from env. So you do NOT need to put it here.
+
+# --- ngrok / public URL for chaining workflows ---
+N8N_BASE_URL=https://perennial-purifier-musty.ngrok-free.dev
+
+# --- Twilio (you already have these; keeping for reference) ---
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+
+# --- Approval token for dashboard → n8n approval endpoint (existing) ---
+APPROVAL_TOKEN=46cc8b8222245e145d1e053eade9b527
+
+# --- NEW: Meta Lead Ads integration ---
+# Source: developers.facebook.com → My Apps → Pentahouse Dev → Settings → Basic → App Secret (click Show)
+META_APP_SECRET=paste_your_meta_app_secret_here
+
+# Source: you invent this string. Then enter the SAME string in the Meta Webhooks UI when subscribing.
+META_VERIFY_TOKEN=pentahouse_verify_2026_a7k3
+
+# Source: developers.facebook.com/tools/explorer → Get Token → User Token → switch to Page Token,
+# then extend at developers.facebook.com/tools/debug/accesstoken → "Extend Access Token"
+META_PAGE_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# --- NEW: EspoCRM integration ---
+# Source: your EspoCRM cloud signup URL (e.g. https://yourname.espocrm.com) — no trailing slash
+ESPO_URL=https://yourname.espocrm.com
+
+# Source: EspoCRM Admin → Users → Create User (type=API) → shown once on save
+ESPO_API_KEY=paste_your_espo_api_key_here
+
+# --- NEW: Google Sheets sink ---
+# Source: the long string in the sheet URL between /d/ and /edit
+GSHEETS_OPS_SHEET_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890aBcDeF

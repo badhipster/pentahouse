@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "ai-agent-builder": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "skillPath": "ai-agent-builder/SKILL.md",
+      "computedHash": "e9c8f2b8f951dbdbd252aba85738e8c01b8f11d1e9339e977aaf1843c3ae8292"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "product-manager-toolkit": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/product-manager-toolkit/SKILL.md",
+      "computedHash": "2ceda3574bf6a565d30d2901119109b3d8048871589d6b9a2e7a36cbfddafd03"
+    }
+  }
+}

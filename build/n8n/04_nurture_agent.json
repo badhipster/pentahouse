@@ -1,0 +1,962 @@
+{
+  "name": "Nurture Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "draft-message",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-draft",
+      "name": "Webhook: Draft Message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ],
+      "notes": "POST /webhook/draft-message. Body: { lead_id, desired_template (e.g. 'site_visit_invite'), trigger_event (e.g. 'LEAD_SCORED'). Optional: visit_slots[] }. Called by Lead Agent on LEAD_SCORED or by the dashboard manually."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "leads",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.lead_id }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-lead",
+      "name": "Supabase: Get Lead",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "lead_scores",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "lead_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook: Draft Message').first().json.body.lead_id }}"
+            }
+          ]
+        },
+        "sort": {
+          "values": [
+            {
+              "field": "scored_at",
+              "direction": "DESC"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-score",
+      "name": "Supabase: Get Latest Score",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "properties",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase: Get Latest Score').first().json.matched_property_id }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-property",
+      "name": "Supabase: Get Matched Property",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        250
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "messages",
+        "returnAll": false,
+        "limit": 10,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "lead_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook: Draft Message').first().json.body.lead_id }}"
+            }
+          ]
+        },
+        "sort": {
+          "values": [
+            {
+              "field": "created_at",
+              "direction": "ASC"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-conv",
+      "name": "Supabase: Get Conversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// v1.1 P1-2: Rejection feedback into prompt context.\n// Pull past rejections for THIS lead + template combo (last 5) and feed them\n// to Gemini as negative examples in the system prompt.\nlet past_rejections = [];\ntry {\n  const allMsgs = $('Supabase: Get Conversation').all().map(i => i.json);\n  past_rejections = allMsgs\n    .filter(m => m.status === 'rejected' && m.rejection_reason)\n    .slice(-5)\n    .map(m => ({ reason: m.rejection_reason, draft: (m.content || '').slice(0, 200) }));\n} catch (e) {\n  past_rejections = [];\n}\n\n// Build the prompt context AND the Gemini request body for the Nurture draft\nconst lead = $('Supabase: Get Lead').first().json;\n\nlet score = null;\ntry { score = $('Supabase: Get Latest Score').first()?.json || null; } catch (e) { score = null; }\n\nlet property = null;\ntry { property = $('Supabase: Get Matched Property').first()?.json || null; } catch (e) { property = null; }\n\nlet conversation = [];\ntry {\n  conversation = $('Supabase: Get Conversation').all().map(i => ({\n    direction: i.json.direction,\n    content: i.json.content,\n    created_at: i.json.created_at\n  }));\n} catch (e) { conversation = []; }\n\nconst webhookBody = $('Webhook: Draft Message').first().json.body;\n\n// v1.1 spec rev. 3 P0-1b \u2014 intent_gap_fill template.\n// When desired_template === 'intent_gap_fill', we override the prompt with a\n// qualification message that asks for the top ask_limit missing fields in\n// priority order. The output is short, warm, project-specific, never invents\n// facts, and gives the buyer easy reply options (ranges for budget, etc).\nconst _gapFillRequested = webhookBody.desired_template === 'intent_gap_fill';\nconst _missingFields = Array.isArray(webhookBody.missing_fields) ? webhookBody.missing_fields : [];\nconst _askLimit = Math.min(2, Math.max(1, webhookBody.ask_limit || 2));\n\n// Priority-ordered field labels for the prompt.\nconst FIELD_LABELS = {\n  purpose:            { label: 'are you looking to buy, rent, or invest',          example: 'buy / rent / invest' },\n  budget_lakhs:       { label: 'what is your budget range',                          example: 'e.g. 80L-1.2Cr, 1.2-1.5Cr, 1.5Cr+' },\n  purchase_timeline:  { label: 'when are you planning to move',                      example: 'Immediately / 3 months / 6 months / Exploring' },\n  preferred_config:   { label: 'which configuration suits you',                      example: '1BHK / 2BHK / 3BHK / 4BHK' },\n  preferred_locality: { label: 'which locality do you prefer',                       example: 'Hinjewadi / Baner / Wakad / Kharadi' },\n  loan_status:        { label: 'how is your home loan progressing',                  example: 'Pre-approved / Applied / Planning / Not sure' },\n};\n\nconst _topMissing = _missingFields.slice(0, _askLimit);\nconst _questionLines = _topMissing.map(f => {\n  const meta = FIELD_LABELS[f];\n  if (!meta) return null;\n  return '- ' + meta.label + '? (' + meta.example + ')';\n}).filter(Boolean).join('\\n');\n\n\n\n\n\n\n// Decide desired_template if not provided\nlet desired_template = webhookBody.desired_template;\nif (!desired_template) {\n  const action = score?.recommended_action;\n  if (action === 'Schedule site visit') desired_template = 'site_visit_invite';\n  else if (action === 'Send brochure')  desired_template = 'brochure_share';\n  else if (action === 'Long-term nurture') desired_template = 'intake_qualifier';\n  else desired_template = 'intake_qualifier';\n}\n\nconst visit_slots = webhookBody.visit_slots || [];\nconst event_name = webhookBody.trigger_event || 'manual';\n\n// Build the FULL Gemini request body as a JSON string. JSON.stringify escapes all\n// newlines and quotes correctly, so this is always valid JSON. The HTTP node's JSON\n// Body field must be in EXPRESSION mode referencing {{ $json.geminiBody }}.\nlet geminiBody = JSON.stringify({\n  systemInstruction: { parts: [{ text: \"You are the Nurture Drafting Agent for an Indian residential real estate sales platform. Draft a personalized WhatsApp message from a sales executive to a buyer. Ground every property fact ONLY in the MATCHED PROPERTY block; do not invent prices, possession, or amenities. Mirror the buyer's language: if language is 'hi', write in Hindi (Devanagari preferred). Length cap 480 chars. End with a single clear next step the buyer can answer in one tap. No marketing fluff. Output MUST be a single JSON object: { template_name, language, content, next_action }. No prose, no markdown fences.\" }] },\n  contents: [{ role: \"user\", parts: [{ text: \"LEAD:\\n\" + JSON.stringify(lead) + \"\\n\\nLATEST SCORE:\\n\" + JSON.stringify(score) + \"\\n\\nMATCHED PROPERTY (use ONLY these facts):\\n\" + JSON.stringify(property) + \"\\n\\nCONVERSATION HISTORY:\\n\" + JSON.stringify(conversation) + \"\\n\\nVISIT SLOTS:\\n\" + JSON.stringify(visit_slots) + \"\\n\\nTRIGGER: \" + event_name + \"\\nDESIRED TEMPLATE: \" + desired_template + \"\\n\\nDraft the message. Return ONLY the JSON.\" }] }],\n  generationConfig: { temperature: 0.4, responseMimeType: \"application/json\" }\n});\n\n\n// Override the Gemini body for gap-fill drafts (qualification only, no selling).\nif (_gapFillRequested) {\n  const _projectName = (property && (property.project_name || property.name)) || 'your shortlisted project';\n  const _leadFirstName = (lead && lead.name ? lead.name.split(' ')[0] : 'there');\n  const _lang = (lead && lead.language) || 'en';\n  const _systemText = 'You are drafting a SHORT WhatsApp qualification message in ' + (_lang === 'hi' ? 'Hindi (Devanagari script)' : 'English') + '. Goal: ask the buyer the listed missing fields. Hard rules: maximum 300 characters total; warm and human; mention the project name once; do NOT pitch or sell; ask only the listed fields; give an easy reply path (the examples in parentheses); never invent project facts. Respond with ONLY the message text, no JSON, no markdown.';\n  const _userText = 'Buyer name: ' + _leadFirstName + '\\nProject they enquired about: ' + _projectName + '\\nQuestions to ask (' + _topMissing.length + '):\\n' + _questionLines;\n  geminiBody = JSON.stringify({\n    systemInstruction: { parts: [{ text: _systemText }] },\n    contents: [{ role: 'user', parts: [{ text: _userText }] }],\n    generationConfig: { temperature: 0.3, maxOutputTokens: 200 }\n  });\n}\n\nreturn [{\n  json: { lead, score, property, conversation, visit_slots, desired_template, event_name, geminiBody }\n}];"
+      },
+      "id": "code-build-context",
+      "name": "Code: Build Drafting Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "gemini-draft",
+      "name": "Gemini: Draft Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini response, validate length + language. Defensive: never references nodes that may not have executed.\nlet lead;\ntry { lead = $('Supabase: Get Lead').first().json; } catch (e) { lead = ($json && $json.lead) ? $json.lead : {}; }\n\nconst resp = $('Gemini: Draft Message').first().json;\n\nlet draft;\ntry {\n  const text = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  draft = JSON.parse(text);\n} catch (e) {\n  draft = {\n    template_name: 'intake_qualifier',\n    language: lead.language || 'en',\n    content: (lead.language === 'hi')\n      ? '\u0928\u092e\u0938\u094d\u0924\u0947 ' + (lead.name || '') + ' \u091c\u0940, \u0906\u092a\u0915\u0940 \u0930\u0941\u091a\u093f \u0915\u0947 \u0932\u093f\u090f \u0927\u0928\u094d\u092f\u0935\u093e\u0926\u0964 \u0915\u093f\u0924\u0928\u0947 BHK \u0914\u0930 \u0915\u093f\u0924\u0928\u093e \u092c\u091c\u091f?'\n      : 'Hi ' + (lead.name || 'there') + ', thanks for your interest. Which BHK and budget range works for you?',\n    next_action: 'await_buyer_reply'\n  };\n}\n\nif (typeof draft.content !== 'string' || draft.content.length > 480) {\n  draft.content = (draft.content || '').slice(0, 480);\n}\nconst expectedLang = lead.language || 'en';\nif (draft.language !== expectedLang) draft.language = expectedLang;\n\nreturn [{\n  json: {\n    lead_id: lead.id,\n    lead_name: lead.name,\n    lead_phone: lead.phone,\n    template_name: draft.template_name || 'intake_qualifier',\n    language: draft.language,\n    content: draft.content,\n    next_action: draft.next_action || 'await_buyer_reply'\n  }\n}];"
+      },
+      "id": "code-parse-draft",
+      "name": "Code: Parse & Validate Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "messages",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $json.lead_id }}"
+            },
+            {
+              "fieldId": "direction",
+              "fieldValue": "outbound"
+            },
+            {
+              "fieldId": "template_name",
+              "fieldValue": "={{ $json.template_name }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.content }}"
+            },
+            {
+              "fieldId": "language",
+              "fieldValue": "={{ $json.language }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_approval"
+            },
+            {
+              "fieldId": "drafted_by",
+              "fieldValue": "gemini-2.5-flash"
+            }
+          ]
+        }
+      },
+      "id": "sb-insert-msg",
+      "name": "Supabase: Insert Pending Message",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        250
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "agent_name",
+              "fieldValue": "Nurture Agent"
+            },
+            {
+              "fieldId": "action",
+              "fieldValue": "drafted_message"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Parse & Validate Draft').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "input_summary",
+              "fieldValue": "={{ 'Trigger: ' + $('Code: Build Drafting Context').first().json.event_name + ', template: ' + $('Code: Parse & Validate Draft').first().json.template_name }}"
+            },
+            {
+              "fieldId": "output_summary",
+              "fieldValue": "={{ $('Code: Parse & Validate Draft').first().json.template_name + ' drafted ' + $('Code: Parse & Validate Draft').first().json.language.toUpperCase() + ', ' + $('Code: Parse & Validate Draft').first().json.content.length + ' chars' }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ok"
+            }
+          ]
+        }
+      },
+      "id": "sb-log-draft",
+      "name": "Supabase: Log Draft",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        250
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, message_id: $('Supabase: Insert Pending Message').first().json.id, status: 'pending_approval' } }}"
+      },
+      "id": "wh-respond-draft",
+      "name": "Respond: Draft Queued",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "approve-message",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "wh-approve",
+      "name": "Webhook: Approve Message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        700
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "dashboard-callback"
+        }
+      },
+      "notes": "POST /webhook/approve-message. Headers must include X-Approval-Token (validated by Header Auth credential). Body: { message_id, action: 'approve'|'edit_approve'|'reject', new_content?, reason? }. Called by the dashboard's Approve/Edit/Reject buttons."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "messages",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.message_id }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-msg",
+      "name": "Supabase: Get Message",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        700
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "leads",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase: Get Message').first().json.lead_id }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-get-lead-approve",
+      "name": "Supabase: Get Lead (Approve flow)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        700
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook: Approve Message').first().json.body.action }}",
+              "rightValue": "reject",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-reject",
+      "name": "IF: Action = reject",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "messages",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook: Approve Message').first().json.body.message_id }}"
+            }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "rejected"
+            },
+            {
+              "fieldId": "rejection_reason",
+              "fieldValue": "={{ $('Webhook: Approve Message').first().json.body.reason || 'No reason given' }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-update-reject",
+      "name": "Supabase: Mark Rejected",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        600
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the final content (apply edit if action=edit_approve)\nconst body = $('Webhook: Approve Message').first().json.body;\nconst originalMsg = $('Supabase: Get Message').first().json;\nconst lead = $('Supabase: Get Lead (Approve flow)').first().json;\nconst finalContent = (body.action === 'edit_approve' && body.new_content) ? body.new_content : originalMsg.content;\n\n// Twilio whatsapp:+E.164\nconst toNumber = 'whatsapp:' + (lead.phone || '').trim();\n\nreturn [{\n  json: {\n    message_id: originalMsg.id,\n    lead_id: lead.id,\n    lead_phone: lead.phone,\n    to: toNumber,\n    body: finalContent,\n    was_edited: body.action === 'edit_approve'\n  }\n}];"
+      },
+      "id": "code-prep-send",
+      "name": "Code: Prep Twilio Send",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_WHATSAPP_FROM }}",
+        "to": "={{ $json.to }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "twilio-send",
+      "name": "Twilio: Send WhatsApp",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        800
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Twilio account"
+        }
+      },
+      "notes": "TWILIO_WHATSAPP_FROM env var should be 'whatsapp:+14155238886' for the Twilio sandbox. Receiver phones must have opted in via 'join <sandbox-code>'."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "messages",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Code: Prep Twilio Send').first().json.message_id }}"
+            }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "sent"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Code: Prep Twilio Send').first().json.body }}"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldId": "twilio_sid",
+              "fieldValue": "={{ $('Twilio: Send WhatsApp').first().json.sid || '' }}"
+            },
+            {
+              "fieldId": "approved_by",
+              "fieldValue": "={{ $('Webhook: Approve Message').first().json.body.approved_by || 'system' }}"
+            },
+            {
+              "fieldId": "approved_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-update-sent",
+      "name": "Supabase: Mark Sent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        800
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "event_name",
+              "fieldValue": "MESSAGE_SENT"
+            },
+            {
+              "fieldId": "source_agent",
+              "fieldValue": "Nurture Agent"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Code: Prep Twilio Send').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ message_id: $('Code: Prep Twilio Send').first().json.message_id, twilio_sid: $('Twilio: Send WhatsApp').first().json.sid || null, was_edited: $('Code: Prep Twilio Send').first().json.was_edited }) }}"
+            }
+          ]
+        }
+      },
+      "id": "sb-event-sent",
+      "name": "Supabase: Emit MESSAGE_SENT",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        800
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "agent_name",
+              "fieldValue": "Nurture Agent"
+            },
+            {
+              "fieldId": "action",
+              "fieldValue": "={{ $('Webhook: Approve Message').first().json.body.action === 'reject' ? 'message_rejected' : 'message_sent' }}"
+            },
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Supabase: Get Message').first().json.lead_id }}"
+            },
+            {
+              "fieldId": "input_summary",
+              "fieldValue": "={{ 'Action: ' + $('Webhook: Approve Message').first().json.body.action + ', message_id: ' + $('Webhook: Approve Message').first().json.body.message_id }}"
+            },
+            {
+              "fieldId": "output_summary",
+              "fieldValue": "={{ $('Webhook: Approve Message').first().json.body.action === 'reject' ? 'Rejected: ' + ($('Webhook: Approve Message').first().json.body.reason || 'no reason') : 'Sent via Twilio' }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ok"
+            }
+          ]
+        }
+      },
+      "id": "sb-log-approval",
+      "name": "Supabase: Log Approval",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        700
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, message_id: $('Webhook: Approve Message').first().json.body.message_id, action: $('Webhook: Approve Message').first().json.body.action, status: $('Webhook: Approve Message').first().json.body.action === 'reject' ? 'rejected' : 'sent', twilio_sid: $('Twilio: Send WhatsApp').first()?.json?.sid || null } }}"
+      },
+      "id": "wh-respond-approve",
+      "name": "Respond: Approval Done",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        700
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Draft Message": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Get Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Lead": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Get Latest Score",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Get Matched Property",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Get Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Latest Score": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Drafting Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Matched Property": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Drafting Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Conversation": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Drafting Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Drafting Context": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft Message": {
+      "main": [
+        [
+          {
+            "node": "Code: Parse & Validate Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Parse & Validate Draft": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Pending Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Pending Message": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log Draft": {
+      "main": [
+        [
+          {
+            "node": "Respond: Draft Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Approve Message": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Get Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Message": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Get Lead (Approve flow)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Lead (Approve flow)": {
+      "main": [
+        [
+          {
+            "node": "IF: Action = reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Action = reject": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Prep Twilio Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Mark Rejected": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Prep Twilio Send": {
+      "main": [
+        [
+          {
+            "node": "Twilio: Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twilio: Send WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Mark Sent": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Emit MESSAGE_SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Emit MESSAGE_SENT": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log Approval": {
+      "main": [
+        [
+          {
+            "node": "Respond: Approval Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "capstone"
+    },
+    {
+      "name": "nurture-agent"
+    }
+  ]
+}

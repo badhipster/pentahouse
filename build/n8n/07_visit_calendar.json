@@ -1,0 +1,264 @@
+{
+  "name": "Visit Calendar (Booking API)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "schedule-visit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-schedule-visit",
+      "name": "Webhook: Schedule Visit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "notes": "POST /webhook/schedule-visit. Body: { visit_id, scheduled_date (YYYY-MM-DD), scheduled_time (HH:MM), duration_minutes? (default 90), assigned_rep_email, attendee_email? }. Called by the dashboard's Visits page when a manager confirms a slot, OR auto-fired by the Nurture Agent when a buyer's WhatsApp reply confirms a slot."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "visits",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $json.body.visit_id }}" }
+          ]
+        }
+      },
+      "id": "sb-get-visit",
+      "name": "Supabase: Get Visit",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [480, 300],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "leads",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Supabase: Get Visit').first().json.lead_id }}" }
+          ]
+        }
+      },
+      "id": "sb-get-lead",
+      "name": "Supabase: Get Lead",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [720, 200],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "properties",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Supabase: Get Visit').first().json.property_id }}" }
+          ]
+        }
+      },
+      "id": "sb-get-property",
+      "name": "Supabase: Get Property",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [720, 400],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the Calendar event payload from visit + lead + property context.\n// The event title, description, attendees, and color are all derived so the\n// rep's calendar reads like a sales briefing, not a generic appointment.\nconst body = $('Webhook: Schedule Visit').first().json.body || {};\nconst visit = $('Supabase: Get Visit').first().json;\nconst lead = $('Supabase: Get Lead').first().json;\nconst property = $('Supabase: Get Property').first().json;\n\n// Combine date + time into ISO timestamps (IST = +05:30)\nconst scheduledDate = body.scheduled_date || visit.scheduled_date;\nconst scheduledTime = body.scheduled_time || visit.scheduled_time || '10:00';\nconst durationMinutes = Number(body.duration_minutes || 90);\nconst tz = 'Asia/Kolkata';\n\nfunction toIsoIST(date, time) {\n  return `${date}T${time}:00+05:30`;\n}\nfunction addMinutes(date, time, mins) {\n  const d = new Date(toIsoIST(date, time));\n  d.setMinutes(d.getMinutes() + mins);\n  // Re-render as IST without timezone math drift\n  const pad = (n) => String(n).padStart(2, '0');\n  const yyyy = d.getFullYear();\n  const mm = pad(d.getMonth() + 1);\n  const dd = pad(d.getDate());\n  const hh = pad(d.getHours());\n  const mi = pad(d.getMinutes());\n  return `${yyyy}-${mm}-${dd}T${hh}:${mi}:00+05:30`;\n}\n\nconst startISO = toIsoIST(scheduledDate, scheduledTime);\nconst endISO = addMinutes(scheduledDate, scheduledTime, durationMinutes);\n\n// Color: hot lead = bold red (id 11), warm = banana (id 5), cold = pale blue (id 9)\nlet colorId = '9';\nif (lead.overall_score >= 80) colorId = '11';\nelse if (lead.overall_score >= 50) colorId = '5';\n\nconst summary = `Site visit · ${property.project_name} · ${lead.name}`;\nconst description = [\n  `Buyer: ${lead.name}  ·  ${lead.phone}${lead.email ? '  ·  ' + lead.email : ''}`,\n  `Source: ${lead.source}${lead.matched_property_name ? '  ·  Top match: ' + lead.matched_property_name : ''}`,\n  '',\n  `Project: ${property.project_name} (${property.developer || 'developer'})`,\n  `Locality: ${property.locality}`,\n  `Configuration: ${property.config || 'mixed'}`,\n  `Price band: ₹${property.price_min_lakhs}-${property.price_max_lakhs} lakhs`,\n  '',\n  `Buyer's stated intent:`,\n  `  · Budget: ${lead.budget_lakhs ? '₹' + lead.budget_lakhs + ' lakhs' : 'not shared'}`,\n  `  · Preferred config: ${lead.preferred_config || 'not shared'}`,\n  `  · Timeline: ${lead.purchase_timeline || 'not shared'}`,\n  `  · Loan status: ${lead.loan_status || 'not shared'}`,\n  '',\n  `Lead score: ${lead.overall_score || '?'}/100  ·  Confidence: ${lead.confidence || '?'}%`,\n  '',\n  `Buyer's inquiry text:`,\n  `\"${(lead.inquiry_text || 'none').slice(0, 400)}\"`,\n  '',\n  `Generated by Pentahouse · trace_id: ${visit.trace_id || 'n/a'}`\n].join('\\n');\n\n// Calendar event body (Google Calendar API v3)\nconst attendees = [];\nif (body.assigned_rep_email) attendees.push({ email: body.assigned_rep_email, responseStatus: 'accepted' });\nconst buyerEmail = body.attendee_email || lead.email || null;\nif (buyerEmail) attendees.push({ email: buyerEmail, responseStatus: 'needsAction' });\n\nconst calendarEventBody = {\n  summary,\n  description,\n  location: property.locality ? `${property.locality}, ${property.city}` : property.city,\n  start: { dateTime: startISO, timeZone: tz },\n  end:   { dateTime: endISO,   timeZone: tz },\n  attendees,\n  colorId,\n  reminders: { useDefault: false, overrides: [\n    { method: 'popup', minutes: 60 },\n    { method: 'popup', minutes: 15 }\n  ] },\n  guestsCanInviteOthers: false,\n  guestsCanSeeOtherGuests: false,\n  source: { title: 'Pentahouse', url: 'https://pentahouse.in' }\n};\n\nreturn [{ json: { calendarEventBody, scheduledDate, scheduledTime, startISO, endISO, attendees, visit, lead, property } }];"
+      },
+      "id": "code-build-event",
+      "name": "Code: Build Calendar Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "sendUpdates", "value": "all" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.calendarEventBody) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "gcal-create-event",
+      "name": "Google Calendar: Create Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300],
+      "credentials": {
+        "googleCalendarOAuth2Api": { "id": "REPLACE_AFTER_IMPORT", "name": "Google Calendar account" }
+      },
+      "notes": "Creates the event on the rep's primary calendar. sendUpdates=all triggers Google to email .ics invites to all attendees. The rep + buyer (if email captured) get the invite + reminder pings."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the Calendar response and prep for the visit row update.\n// Even if Calendar errored (neverError=true), we surface the error in the\n// payload so the dashboard can show a 'calendar sync failed' banner.\nconst resp = $('Google Calendar: Create Event').first().json || {};\nconst ctx = $('Code: Build Calendar Event').first().json;\n\nconst ok = !!resp.id && !resp.error;\nreturn [{\n  json: {\n    ok,\n    calendar_event_id: resp.id || null,\n    calendar_event_url: resp.htmlLink || null,\n    calendar_error: resp.error ? JSON.stringify(resp.error).slice(0, 500) : null,\n    visit_id: ctx.visit.id,\n    lead_id: ctx.visit.lead_id,\n    property_id: ctx.visit.property_id,\n    trace_id: ctx.visit.trace_id || null,\n    summary: ctx.calendarEventBody.summary,\n    startISO: ctx.startISO,\n    endISO: ctx.endISO,\n    attendees: ctx.attendees\n  }\n}];"
+      },
+      "id": "code-parse-event",
+      "name": "Code: Parse Calendar Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "visits",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $json.visit_id }}" }
+          ]
+        },
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "calendar_event_id",  "fieldValue": "={{ $json.calendar_event_id }}" },
+            { "fieldId": "calendar_event_url", "fieldValue": "={{ $json.calendar_event_url }}" },
+            { "fieldId": "calendar_provider",  "fieldValue": "google" },
+            { "fieldId": "status",             "fieldValue": "Scheduled" }
+          ]
+        }
+      },
+      "id": "sb-update-visit",
+      "name": "Supabase: Update Visit",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1680, 300],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_events",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "event_name",   "fieldValue": "VISIT_SCHEDULED" },
+            { "fieldId": "source_agent", "fieldValue": "Visit Calendar" },
+            { "fieldId": "lead_id",      "fieldValue": "={{ $('Code: Parse Calendar Response').first().json.lead_id }}" },
+            { "fieldId": "property_id",  "fieldValue": "={{ $('Code: Parse Calendar Response').first().json.property_id }}" },
+            { "fieldId": "trace_id",     "fieldValue": "={{ $('Code: Parse Calendar Response').first().json.trace_id }}" },
+            { "fieldId": "payload",      "fieldValue": "={{ JSON.stringify({ visit_id: $('Code: Parse Calendar Response').first().json.visit_id, calendar_event_id: $('Code: Parse Calendar Response').first().json.calendar_event_id, calendar_event_url: $('Code: Parse Calendar Response').first().json.calendar_event_url, summary: $('Code: Parse Calendar Response').first().json.summary, startISO: $('Code: Parse Calendar Response').first().json.startISO, attendees: $('Code: Parse Calendar Response').first().json.attendees, ok: $('Code: Parse Calendar Response').first().json.ok, calendar_error: $('Code: Parse Calendar Response').first().json.calendar_error }) }}" }
+          ]
+        }
+      },
+      "id": "sb-emit-scheduled",
+      "name": "Supabase: Emit VISIT_SCHEDULED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1920, 300],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "agent_name",     "fieldValue": "Visit Calendar" },
+            { "fieldId": "action",         "fieldValue": "calendar_event_created" },
+            { "fieldId": "lead_id",        "fieldValue": "={{ $('Code: Parse Calendar Response').first().json.lead_id }}" },
+            { "fieldId": "input_summary",  "fieldValue": "={{ 'Visit ' + $('Code: Parse Calendar Response').first().json.visit_id + ' at ' + $('Code: Parse Calendar Response').first().json.startISO }}" },
+            { "fieldId": "output_summary", "fieldValue": "={{ $('Code: Parse Calendar Response').first().json.ok ? ('Calendar event ' + $('Code: Parse Calendar Response').first().json.calendar_event_id + ' created. Attendees: ' + $('Code: Parse Calendar Response').first().json.attendees.length) : ('Calendar sync FAILED: ' + ($('Code: Parse Calendar Response').first().json.calendar_error || 'unknown')) }}" },
+            { "fieldId": "status",         "fieldValue": "={{ $('Code: Parse Calendar Response').first().json.ok ? 'ok' : 'error' }}" }
+          ]
+        }
+      },
+      "id": "sb-log-calendar",
+      "name": "Supabase: Log Calendar Action",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2160, 300],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: $('Code: Parse Calendar Response').first().json.ok, visit_id: $('Code: Parse Calendar Response').first().json.visit_id, calendar_event_id: $('Code: Parse Calendar Response').first().json.calendar_event_id, calendar_event_url: $('Code: Parse Calendar Response').first().json.calendar_event_url, summary: $('Code: Parse Calendar Response').first().json.summary, startISO: $('Code: Parse Calendar Response').first().json.startISO, error: $('Code: Parse Calendar Response').first().json.calendar_error } }}",
+        "options": {}
+      },
+      "id": "wh-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2400, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Schedule Visit": {
+      "main": [[{ "node": "Supabase: Get Visit", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Get Visit": {
+      "main": [[{ "node": "Supabase: Get Lead", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Get Lead": {
+      "main": [[{ "node": "Supabase: Get Property", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Get Property": {
+      "main": [[{ "node": "Code: Build Calendar Event", "type": "main", "index": 0 }]]
+    },
+    "Code: Build Calendar Event": {
+      "main": [[{ "node": "Google Calendar: Create Event", "type": "main", "index": 0 }]]
+    },
+    "Google Calendar: Create Event": {
+      "main": [[{ "node": "Code: Parse Calendar Response", "type": "main", "index": 0 }]]
+    },
+    "Code: Parse Calendar Response": {
+      "main": [[{ "node": "Supabase: Update Visit", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Update Visit": {
+      "main": [[{ "node": "Supabase: Emit VISIT_SCHEDULED", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Emit VISIT_SCHEDULED": {
+      "main": [[{ "node": "Supabase: Log Calendar Action", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Log Calendar Action": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "capstone" }, { "name": "visit-calendar" }]
+}

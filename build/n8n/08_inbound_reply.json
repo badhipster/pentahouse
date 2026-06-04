@@ -1,0 +1,345 @@
+{
+  "name": "Inbound Reply (v1.1 P0-2)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio-inbound",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-inbound",
+      "name": "Webhook: Twilio Inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 320],
+      "notes": "Twilio POSTs incoming WhatsApp here. Expected form-encoded body: From, Body, MessageSid, NumMedia. For mock demo: send same fields as JSON. Configure Twilio Console -> Programmable Messaging -> WhatsApp Sandbox Settings -> 'When a message comes in' = https://<ngrok>.ngrok-free.app/webhook/twilio-inbound"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize the Twilio payload. Twilio sends From=whatsapp:+919999000001 \n// Strip the prefix, normalize phone.\nconst body = $input.first().json.body || $input.first().json;\nconst rawFrom = body.From || body.from || '';\nconst phone = rawFrom.replace(/^whatsapp:/, '').trim();\nconst text = body.Body || body.body || body.message || '';\nconst messageSid = body.MessageSid || body.message_sid || ('mock-' + Date.now());\n\nif (!phone || !text) {\n  return [{ json: { ok: false, error: 'Missing From or Body', phone, text } }];\n}\n\nconst traceId = crypto.randomUUID();\n\nreturn [{\n  json: {\n    phone,\n    text,\n    messageSid,\n    receivedAt: new Date().toISOString(),\n    traceId\n  }\n}];"
+      },
+      "id": "code-normalize",
+      "name": "Code: Normalize Inbound",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/check_existing_lead_by_phone",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $json.phone }) }}",
+        "options": {
+          "response": {"response": {"neverError": true, "responseFormat": "json"}}
+        }
+      },
+      "id": "http-lookup-lead",
+      "name": "HTTP: Lookup Lead by Phone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 320],
+      "notes": "Uses the migration 0015 RPC. Returns existing_lead_id, existing_name, existing_score, existing_stage, existing_created_at."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine if known lead. If unknown, end the flow (no ghost leads in v1.1).\nconst lookup = $input.first().json;\nconst rows = Array.isArray(lookup) ? lookup : (lookup.body && Array.isArray(lookup.body) ? lookup.body : []);\nconst hit = rows[0];\nconst norm = $('Code: Normalize Inbound').first().json;\n\nif (!hit || !hit.existing_lead_id) {\n  return [{ json: { ...norm, isKnown: false, leadId: null, leadName: null, currentStage: null, lastRescoredAt: null } }];\n}\n\nreturn [{\n  json: {\n    ...norm,\n    isKnown: true,\n    leadId: hit.existing_lead_id,\n    leadName: hit.existing_name,\n    currentScore: hit.existing_score,\n    currentStage: hit.existing_stage\n  }\n}];"
+      },
+      "id": "code-classify",
+      "name": "Code: Known or Unknown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "is-known",
+            "leftValue": "={{ $json.isKnown }}",
+            "rightValue": true,
+            "operator": {"type": "boolean", "operation": "equals"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-known",
+      "name": "IF: Known Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 320]
+    },
+    {
+      "parameters": {
+        "tableId": "messages",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "lead_id",   "fieldValue": "={{ $('Code: Known or Unknown').first().json.leadId }}"},
+            {"fieldId": "channel",   "fieldValue": "WhatsApp"},
+            {"fieldId": "direction", "fieldValue": "inbound"},
+            {"fieldId": "content",   "fieldValue": "={{ $('Code: Known or Unknown').first().json.text }}"},
+            {"fieldId": "status",    "fieldValue": "delivered"},
+            {"fieldId": "trace_id",  "fieldValue": "={{ $('Code: Known or Unknown').first().json.traceId }}"},
+            {"fieldId": "trigger_event", "fieldValue": "buyer_reply"}
+          ]
+        }
+      },
+      "id": "supabase-insert-inbound",
+      "name": "Supabase: Insert Inbound Message",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 240],
+      "credentials": {
+        "supabaseApi": {"id": "REPLACE_AFTER_IMPORT", "name": "Supabase account"}
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={{ $env.GEMINI_API_KEY }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  systemInstruction: { parts: [{ text: 'Extract any structured intent fields from this WhatsApp buyer reply. Return ONLY JSON matching the schema. If a field is not mentioned in the reply, omit it (do NOT guess). Budget should be in INR lakhs. timeline must be one of: Immediately, 3 months, 6 months, Exploring. loan_status must be one of: Pre-approved, Applied, Planning, Not sure. purpose must be one of: buy, rent, invest, browse, not_sure.' }] },\n  contents: [{ role: 'user', parts: [{ text: 'Lead name: ' + $('Code: Known or Unknown').first().json.leadName + '\\nReply: ' + $('Code: Known or Unknown').first().json.text }] }],\n  generationConfig: {\n    temperature: 0.1,\n    responseMimeType: 'application/json',\n    responseSchema: {\n      type: 'OBJECT',\n      properties: {\n        budget_lakhs: { type: 'INTEGER' },\n        preferred_config: { type: 'STRING' },\n        preferred_locality: { type: 'STRING' },\n        purchase_timeline: { type: 'STRING', enum: ['Immediately','3 months','6 months','Exploring'] },\n        loan_status: { type: 'STRING', enum: ['Pre-approved','Applied','Planning','Not sure'] },\n        purpose: { type: 'STRING', enum: ['buy','rent','invest','browse','not_sure'] },\n        family_size: { type: 'INTEGER' },\n        decision_makers: { type: 'STRING' }\n      }\n    }\n  }\n}) }}",
+        "options": {
+          "response": {"response": {"neverError": true, "responseFormat": "json"}},
+          "timeout": 20000
+        }
+      },
+      "id": "http-gemini-extract",
+      "name": "Gemini: Extract Intent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 240],
+      "notes": "Reuses the intent_extraction.md prompt structure. responseSchema enforces JSON shape; will return only fields mentioned in the reply."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini extraction and merge with existing lead values WITHOUT clobbering.\n// Honor the spec's rule: only fill nulls, never overwrite confirmed values.\nconst leadId = $('Code: Known or Unknown').first().json.leadId;\nconst geminiResp = $input.first().json;\nlet extracted = {};\ntry {\n  const cand = geminiResp.body || geminiResp;\n  const text = cand.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (text) extracted = JSON.parse(text);\n} catch (e) {\n  extracted = {};\n}\n\nconst traceId = $('Code: Known or Unknown').first().json.traceId;\n\nreturn [{\n  json: {\n    leadId,\n    extracted,\n    extractedCount: Object.keys(extracted).length,\n    traceId\n  }\n}];"
+      },
+      "id": "code-parse-extract",
+      "name": "Code: Parse Extracted Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 240]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/leads?id=eq.{{ $('Code: Parse Extracted Intent').first().json.leadId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.fromEntries(Object.entries($('Code: Parse Extracted Intent').first().json.extracted).filter(([k,v]) => v !== null && v !== undefined && v !== ''))) }}",
+        "options": {
+          "response": {"response": {"neverError": true, "responseFormat": "json"}}
+        }
+      },
+      "id": "http-update-intent",
+      "name": "HTTP: Update Lead Intent (no clobber)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 240],
+      "notes": "Supabase PATCH only updates the fields we send. The spec's no-clobber rule needs a DB trigger OR sentinel default; here we trust that the Lead Agent set explicit values for non-null fields. v2 enhancement: add an upsert RPC that respects 'do not overwrite if not null'."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/leads?id=eq.{{ $('Code: Parse Extracted Intent').first().json.leadId }}&select=last_rescored_at",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {"response": {"responseFormat": "json"}}
+        }
+      },
+      "id": "http-fetch-debounce",
+      "name": "HTTP: Fetch Debounce State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Apply 5-minute debounce per lead (Open Q1 answered: 5min default)\nconst row = ($input.first().json[0] || $input.first().json || {});\nconst lastRescoredAt = row.last_rescored_at ? new Date(row.last_rescored_at).getTime() : 0;\nconst now = Date.now();\nconst DEBOUNCE_MS = 5 * 60 * 1000;\n\nconst shouldRescore = (now - lastRescoredAt) > DEBOUNCE_MS;\nconst leadId = $('Code: Parse Extracted Intent').first().json.leadId;\nconst traceId = $('Code: Parse Extracted Intent').first().json.traceId;\nconst extractedCount = $('Code: Parse Extracted Intent').first().json.extractedCount;\n\nreturn [{\n  json: {\n    leadId,\n    traceId,\n    shouldRescore,\n    debounceMsRemaining: shouldRescore ? 0 : DEBOUNCE_MS - (now - lastRescoredAt),\n    extractedCount\n  }\n}];"
+      },
+      "id": "code-debounce",
+      "name": "Code: Debounce Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 240],
+      "notes": "v1.1 Open Q1 answered: 5-min debounce per lead. Prevents Gemini 429 from chatty buyers."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "should-rescore",
+            "leftValue": "={{ $json.shouldRescore }}",
+            "rightValue": true,
+            "operator": {"type": "boolean", "operation": "equals"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-debounce-ok",
+      "name": "IF: Debounce OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2660, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/new-lead",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ rescore_lead_id: $('Code: Debounce Check').first().json.leadId, trace_id: $('Code: Debounce Check').first().json.traceId, trigger_event: 'reply_received' }) }}",
+        "options": {
+          "response": {"response": {"neverError": true, "responseFormat": "json"}},
+          "timeout": 30000
+        }
+      },
+      "id": "http-trigger-rescore",
+      "name": "HTTP: Trigger Re-score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 160],
+      "notes": "v1.1 P0-2 acceptance: a reply triggers a new lead_scores row. Lead Agent will need a small branch to recognize rescore_lead_id and skip re-insert. For v1.1 demo, calling /webhook/new-lead with a marker is acceptable; production should have a dedicated /webhook/rescore-lead endpoint."
+    },
+    {
+      "parameters": {
+        "tableId": "agent_events",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "event_name", "fieldValue": "REPLY_RECEIVED"},
+            {"fieldId": "source_agent", "fieldValue": "Inbound Reply Agent"},
+            {"fieldId": "lead_id", "fieldValue": "={{ $('Code: Known or Unknown').first().json.leadId }}"},
+            {"fieldId": "trace_id", "fieldValue": "={{ $('Code: Known or Unknown').first().json.traceId }}"},
+            {"fieldId": "payload", "fieldValue": "={{ JSON.stringify({ text: $('Code: Known or Unknown').first().json.text, extracted_count: $('Code: Parse Extracted Intent').first().json.extractedCount }) }}"}
+          ]
+        }
+      },
+      "id": "supabase-emit-reply-event",
+      "name": "Supabase: Emit REPLY_RECEIVED",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2880, 320],
+      "credentials": {
+        "supabaseApi": {"id": "REPLACE_AFTER_IMPORT", "name": "Supabase account"}
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "agent_logs",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "agent_name", "fieldValue": "Lead Agent"},
+            {"fieldId": "action", "fieldValue": "ingest_inbound_reply"},
+            {"fieldId": "input_summary", "fieldValue": "={{ 'Reply from ' + ($('Code: Known or Unknown').first().json.leadName || 'unknown') + ': ' + $('Code: Known or Unknown').first().json.text.slice(0,80) }}"},
+            {"fieldId": "output_summary", "fieldValue": "={{ 'Extracted ' + $('Code: Parse Extracted Intent').first().json.extractedCount + ' fields, ' + ($('Code: Debounce Check').first().json.shouldRescore ? 're-scored' : 'debounced') }}"},
+            {"fieldId": "lead_id", "fieldValue": "={{ $('Code: Known or Unknown').first().json.leadId }}"},
+            {"fieldId": "trace_id", "fieldValue": "={{ $('Code: Known or Unknown').first().json.traceId }}"},
+            {"fieldId": "status", "fieldValue": "ok"}
+          ]
+        }
+      },
+      "id": "supabase-log-inbound",
+      "name": "Supabase: Log Inbound Run",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3100, 240],
+      "credentials": {
+        "supabaseApi": {"id": "REPLACE_AFTER_IMPORT", "name": "Supabase account"}
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, lead_id: $('Code: Known or Unknown').first().json.leadId, extracted_fields: $('Code: Parse Extracted Intent').first().json.extractedCount, rescored: $('Code: Debounce Check').first().json.shouldRescore }) }}"
+      },
+      "id": "respond-ok",
+      "name": "Respond: Inbound Processed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3320, 240]
+    },
+    {
+      "parameters": {
+        "tableId": "agent_logs",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "agent_name", "fieldValue": "Lead Agent"},
+            {"fieldId": "action", "fieldValue": "ingest_inbound_reply_unknown"},
+            {"fieldId": "input_summary", "fieldValue": "={{ 'Unknown number ' + $('Code: Known or Unknown').first().json.phone + ': ' + $('Code: Known or Unknown').first().json.text.slice(0,80) }}"},
+            {"fieldId": "output_summary", "fieldValue": "Dropped (no matching lead, v1.1 does not ghost-create)"},
+            {"fieldId": "status", "fieldValue": "warning"}
+          ]
+        }
+      },
+      "id": "supabase-log-unknown",
+      "name": "Supabase: Log Unknown Drop",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 480],
+      "credentials": {
+        "supabaseApi": {"id": "REPLACE_AFTER_IMPORT", "name": "Supabase account"}
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, dropped: true, reason: 'unknown_phone' }) }}"
+      },
+      "id": "respond-dropped",
+      "name": "Respond: Dropped Unknown",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 480]
+    }
+  ],
+  "connections": {
+    "Webhook: Twilio Inbound": {"main": [[{"node": "Code: Normalize Inbound", "type": "main", "index": 0}]]},
+    "Code: Normalize Inbound": {"main": [[{"node": "HTTP: Lookup Lead by Phone", "type": "main", "index": 0}]]},
+    "HTTP: Lookup Lead by Phone": {"main": [[{"node": "Code: Known or Unknown", "type": "main", "index": 0}]]},
+    "Code: Known or Unknown": {"main": [[{"node": "IF: Known Lead?", "type": "main", "index": 0}]]},
+    "IF: Known Lead?": {"main": [
+      [{"node": "Supabase: Insert Inbound Message", "type": "main", "index": 0}],
+      [{"node": "Supabase: Log Unknown Drop", "type": "main", "index": 0}]
+    ]},
+    "Supabase: Insert Inbound Message": {"main": [[{"node": "Gemini: Extract Intent", "type": "main", "index": 0}]]},
+    "Gemini: Extract Intent": {"main": [[{"node": "Code: Parse Extracted Intent", "type": "main", "index": 0}]]},
+    "Code: Parse Extracted Intent": {"main": [[{"node": "HTTP: Update Lead Intent (no clobber)", "type": "main", "index": 0}]]},
+    "HTTP: Update Lead Intent (no clobber)": {"main": [[{"node": "HTTP: Fetch Debounce State", "type": "main", "index": 0}]]},
+    "HTTP: Fetch Debounce State": {"main": [[{"node": "Code: Debounce Check", "type": "main", "index": 0}]]},
+    "Code: Debounce Check": {"main": [[{"node": "IF: Debounce OK?", "type": "main", "index": 0}]]},
+    "IF: Debounce OK?": {"main": [
+      [{"node": "HTTP: Trigger Re-score", "type": "main", "index": 0}, {"node": "Supabase: Emit REPLY_RECEIVED", "type": "main", "index": 0}],
+      [{"node": "Supabase: Emit REPLY_RECEIVED", "type": "main", "index": 0}]
+    ]},
+    "HTTP: Trigger Re-score": {"main": [[{"node": "Supabase: Log Inbound Run", "type": "main", "index": 0}]]},
+    "Supabase: Emit REPLY_RECEIVED": {"main": [[{"node": "Supabase: Log Inbound Run", "type": "main", "index": 0}]]},
+    "Supabase: Log Inbound Run": {"main": [[{"node": "Respond: Inbound Processed", "type": "main", "index": 0}]]},
+    "Supabase: Log Unknown Drop": {"main": [[{"node": "Respond: Dropped Unknown", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "v1.1-inbound-reply-0001"
+}

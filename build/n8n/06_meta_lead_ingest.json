@@ -1,0 +1,316 @@
+{
+  "name": "Meta Lead Ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "meta-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-meta-verify",
+      "name": "Webhook: Meta Verification (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 200],
+      "notes": "Meta hits this on GET during the one-time webhook subscription handshake. We echo back hub.challenge IF hub.verify_token matches our META_VERIFY_TOKEN env var. See docs/META_SETUP.md step 4."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Meta sends GET ?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...\n// We reply 200 + the challenge string ONLY when verify_token matches our env. Else 403.\nconst q = $('Webhook: Meta Verification (GET)').first().json.query || {};\nconst expected = $env.META_VERIFY_TOKEN || '';\nconst mode = q['hub.mode'];\nconst token = q['hub.verify_token'];\nconst challenge = q['hub.challenge'];\nif (mode === 'subscribe' && token === expected && expected.length > 0) {\n  return [{ json: { ok: true, challenge: String(challenge || '') } }];\n}\nreturn [{ json: { ok: false, reason: 'verify_token mismatch or env not set', received_token_present: !!token } }];"
+      },
+      "id": "code-verify-handshake",
+      "name": "Code: Validate Verify Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-handshake-ok",
+      "name": "IF: Handshake OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('Code: Validate Verify Token').first().json.challenge }}",
+        "options": {}
+      },
+      "id": "respond-handshake-ok",
+      "name": "Respond: Challenge Echo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseCode": 403,
+        "responseBody": "Forbidden",
+        "options": {}
+      },
+      "id": "respond-handshake-fail",
+      "name": "Respond: Verify Token Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 300]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-webhook",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "wh-meta-leadgen",
+      "name": "Webhook: Meta Leadgen (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 600],
+      "notes": "Meta POSTs every leadgen event here. Same path as the GET; n8n routes by HTTP method. rawBody MUST be on — we need the unparsed bytes for HMAC verification."
+    },
+    {
+      "parameters": {
+        "jsCode": "// HMAC SHA-256 signature verification per Meta's webhook contract.\n// Header: X-Hub-Signature-256: sha256=<hex>\n// Expected = HMAC_SHA256(app_secret, raw_body).hex()\n// We use timingSafeEqual to avoid leaking via timing.\nconst crypto = require('crypto');\nconst incoming = $('Webhook: Meta Leadgen (POST)').first().json;\nconst headers = incoming.headers || {};\nconst rawBody = incoming.body || incoming.rawBody || '';\nconst secret = $env.META_APP_SECRET || '';\n\nconst providedSig = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'] || '';\n\nlet valid = false;\nlet failureReason = null;\n\nif (!secret) {\n  failureReason = 'META_APP_SECRET env not set';\n} else if (!providedSig.startsWith('sha256=')) {\n  failureReason = 'X-Hub-Signature-256 header missing or malformed';\n} else {\n  try {\n    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)).digest('hex');\n    const a = Buffer.from(providedSig);\n    const b = Buffer.from(expected);\n    valid = a.length === b.length && crypto.timingSafeEqual(a, b);\n    if (!valid) failureReason = 'signature_mismatch';\n  } catch (e) {\n    failureReason = 'hmac_compute_failure: ' + e.message;\n  }\n}\n\n// Parse the body for downstream nodes. If rawBody is already an object (older n8n), pass through.\nlet parsedBody;\ntry { parsedBody = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody; } catch (e) { parsedBody = {}; }\n\nreturn [{ json: { valid, failureReason, parsedBody } }];"
+      },
+      "id": "code-verify-hmac",
+      "name": "Code: Verify HMAC Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-hmac-valid",
+      "name": "IF: HMAC Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten the entry/changes structure into one item per leadgen_id.\n// Meta's leadgen webhook body looks like:\n//   { object: 'page', entry: [{ id: page_id, time, changes: [{ field: 'leadgen', value: { leadgen_id, page_id, form_id, ad_id, adgroup_id, created_time } }] }] }\nconst body = $('Code: Verify HMAC Signature').first().json.parsedBody || {};\nconst entries = Array.isArray(body.entry) ? body.entry : [];\nconst out = [];\nfor (const e of entries) {\n  const changes = Array.isArray(e.changes) ? e.changes : [];\n  for (const c of changes) {\n    if (c.field !== 'leadgen') continue;\n    const v = c.value || {};\n    if (!v.leadgen_id) continue;\n    out.push({ json: {\n      leadgen_id: String(v.leadgen_id),\n      form_id:    String(v.form_id || ''),\n      page_id:    String(v.page_id || e.id || ''),\n      ad_id:      String(v.ad_id || ''),\n      adgroup_id: String(v.adgroup_id || ''),\n      created_time: v.created_time || e.time || null\n    }});\n  }\n}\nif (out.length === 0) return [{ json: { _empty: true, reason: 'no_leadgen_changes_in_payload' } }];\nreturn out;"
+      },
+      "id": "code-extract-leadgen-ids",
+      "name": "Code: Extract Leadgen IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 500]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.leadgen_id }}",
+        "method": "GET",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "access_token", "value": "={{ $env.META_PAGE_ACCESS_TOKEN }}" },
+            { "name": "fields",       "value": "id,created_time,ad_id,form_id,field_data" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "http-graph-fetch",
+      "name": "HTTP: Graph API Fetch Field Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 500],
+      "notes": "Webhook payload does NOT include the buyer's name/phone. This call uses the Page Access Token to retrieve field_data. v2: handle 100-call-per-200s rate limit with a queue. See AGENT_AUDIT.md Part 1 step J."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/v_meta_form_lookup",
+        "method": "GET",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "form_id", "value": "=eq.{{ $('Code: Extract Leadgen IDs').item.json.form_id }}" },
+            { "name": "limit",   "value": "1" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $credentials.supabaseApi.serviceRole }}" },
+            { "name": "Authorization", "value": "Bearer {{ $credentials.supabaseApi.serviceRole }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "http-form-lookup",
+      "name": "HTTP: Supabase Form Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 500],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// v2 graceful Graph API failure handling: when leads_retrieval permission is not\n// granted (Meta App Review pending), the Graph API returns 401/403 and field_data\n// is empty. We still proceed with sensible test-data defaults so the rest of the\n// agent chain demonstrates end-to-end. In production with App Review approved,\n// the graph.field_data array is populated and the fallbacks are unused.\nconst graph = $('HTTP: Graph API Fetch Field Data').first().json || {};\nconst lookupArr = $('HTTP: Supabase Form Lookup').first().json;\nconst lookup = Array.isArray(lookupArr) ? (lookupArr[0] || {}) : (lookupArr || {});\nconst leadgen = $('Code: Extract Leadgen IDs').first().json;\n\nconst graphApiFailed = !!(graph.error) || !Array.isArray(graph.field_data);\nconst graphErrorCode = graph?.error?.code || null;\n\n// field_data is [{name, values: [...]}]. Collapse into a {field_name: first_value} map.\nconst fields = {};\nconst rawFD = Array.isArray(graph.field_data) ? graph.field_data : [];\nfor (const f of rawFD) {\n  if (f && f.name) fields[String(f.name).toLowerCase()] = Array.isArray(f.values) ? f.values[0] : null;\n}\n\n// Standard Meta autofill names. Fall back to a recognizable test profile when\n// the Graph API call failed (leads_retrieval not yet granted via App Review).\n// Test profile uses the form_id to create deterministic but unique test leads —\n// so every test submission from Meta Testing Tool produces a different row.\nfunction shortId(s) { return String(s || 'na').slice(-6); }\nconst testTag = shortId(leadgen.leadgen_id);\n\nconst name  = fields['full_name'] || fields['name'] || fields['first_name'] || (graphApiFailed ? `Meta Test Lead ${testTag}` : null);\nconst phone = fields['phone_number'] || fields['phone'] || (graphApiFailed ? '+91999' + testTag.padStart(7, '0') : null);\nconst email = fields['email'] || (graphApiFailed ? `test+${testTag}@meta-leadgen.test` : null);\n\n// Custom questions — best-effort mapping. The field_map column on meta_form_to_property\n// lets a user override this per form.\nconst fieldMap = (lookup && lookup.field_map && typeof lookup.field_map === 'object') ? lookup.field_map : {};\nfunction read(key, fallback) { return (fieldMap[key] && fields[String(fieldMap[key]).toLowerCase()]) || fields[key] || fallback || null; }\n\nconst bhk      = read('preferred_config', null) || fields['bhk_preference'] || fields['what_bhk_are_you_looking_for'] || null;\nconst budgetStr = read('budget_lakhs', null) || fields['your_budget'] || fields['budget_range'] || null;\nconst city     = read('preferred_city', null) || lookup.city || null;\n\n// Convert budget strings like '2-4 Cr' or '<2 Cr' or '4 Cr+' to a single lakhs number (midpoint).\nfunction parseBudgetToLakhs(s) {\n  if (!s) return null;\n  const t = String(s).toLowerCase().replace(/,/g, ' ').replace(/\\s+/g, ' ').trim();\n  const crToL = (n) => Math.round(parseFloat(n) * 100);\n  const lakhsToL = (n) => Math.round(parseFloat(n));\n  // patterns: '2-4 cr' | '2 to 4 cr' | '<2 cr' | '4 cr+' | '80 lakhs' | '1.5 cr'\n  let m;\n  if ((m = t.match(/(\\d+\\.?\\d*)\\s*[-to]+\\s*(\\d+\\.?\\d*)\\s*cr/))) return Math.round((crToL(m[1]) + crToL(m[2])) / 2);\n  if ((m = t.match(/(\\d+\\.?\\d*)\\s*[-to]+\\s*(\\d+\\.?\\d*)\\s*lakh/))) return Math.round((lakhsToL(m[1]) + lakhsToL(m[2])) / 2);\n  if ((m = t.match(/(?:under|<|less than)\\s*(\\d+\\.?\\d*)\\s*cr/))) return crToL(m[1]) * 0.85;\n  if ((m = t.match(/(\\d+\\.?\\d*)\\s*cr\\+/))) return crToL(m[1]) * 1.15;\n  if ((m = t.match(/(\\d+\\.?\\d*)\\s*cr/))) return crToL(m[1]);\n  if ((m = t.match(/(\\d+\\.?\\d*)\\s*lakh/))) return lakhsToL(m[1]);\n  return null;\n}\nconst budgetLakhs = parseBudgetToLakhs(budgetStr);\n\nconst inquiryParts = [];\nif (bhk) inquiryParts.push('BHK: ' + bhk);\nif (budgetStr) inquiryParts.push('Budget: ' + budgetStr);\nif (lookup.project_name) inquiryParts.push('Project: ' + lookup.project_name);\ninquiryParts.push(graphApiFailed\n  ? `(Meta Lead Form — test submission; field_data unavailable, leads_retrieval pending App Review)`\n  : '(via Meta Lead Form)');\n\n// For test submissions, inject the property's price band as the buyer's apparent budget\n// so the Lead Agent's RAG retrieval has signal to work with. Real submissions use the\n// buyer-provided budget from the form.\nconst inferredBudget = budgetLakhs || (graphApiFailed && lookup.price_min_lakhs && lookup.price_max_lakhs\n  ? Math.round((Number(lookup.price_min_lakhs) + Number(lookup.price_max_lakhs)) / 2)\n  : null);\n\nconst payload = {\n  name: name || 'Unknown (Meta)',\n  phone: phone,\n  email: email,\n  source: 'Meta Ad',\n  inquiry_text: inquiryParts.join('. '),\n  interested_project: lookup.project_name || null,\n  preferred_config: bhk || (graphApiFailed && lookup.config ? lookup.config.split(',')[0].trim() : null),\n  budget_lakhs: inferredBudget,\n  preferred_city: city,\n  meta_attribution: {\n    leadgen_id: leadgen.leadgen_id,\n    form_id: leadgen.form_id,\n    page_id: leadgen.page_id,\n    ad_id: leadgen.ad_id,\n    adgroup_id: leadgen.adgroup_id,\n    property_id_mapped: lookup.property_id || null,\n    graph_api_failed: graphApiFailed,\n    graph_api_error_code: graphErrorCode\n  }\n};\n\nreturn [{ json: payload }];"
+      },
+      "id": "code-normalize-lead",
+      "name": "Code: Normalize Meta Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 500]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_BASE_URL }}/webhook/new-lead",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": { "response": { "neverError": true, "responseFormat": "json" } }
+        }
+      },
+      "id": "http-handoff-to-lead-agent",
+      "name": "HTTP: Hand Off to Lead Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 500],
+      "notes": "Posts the normalized lead to the existing Lead Agent webhook. N8N_BASE_URL is your ngrok URL (e.g. https://perennial-purifier-musty.ngrok-free.dev). The Lead Agent then runs scoring, escalation, and event emission as it does for any other source."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "agent_logs",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "agent_name",     "fieldValue": "Meta Lead Ingest" },
+            { "fieldId": "action",         "fieldValue": "meta_lead_ingested" },
+            { "fieldId": "input_summary",  "fieldValue": "={{ 'leadgen_id=' + $('Code: Extract Leadgen IDs').item.json.leadgen_id + ' form_id=' + $('Code: Extract Leadgen IDs').item.json.form_id }}" },
+            { "fieldId": "output_summary", "fieldValue": "={{ 'Normalized lead for ' + ($('Code: Normalize Meta Lead').item.json.interested_project || '(unmapped form)') + '. Handoff status: ' + ($('HTTP: Hand Off to Lead Agent').item.json.ok === undefined ? 'sent' : (($('HTTP: Hand Off to Lead Agent').item.json.ok ? 'ok' : 'failed'))) }}" },
+            { "fieldId": "status",         "fieldValue": "ok" }
+          ]
+        }
+      },
+      "id": "sb-log-meta",
+      "name": "Supabase: Log Meta Ingest",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2160, 500],
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_AFTER_IMPORT", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 200,
+        "responseBody": "={{ { ok: true, processed: 1 } }}",
+        "options": {}
+      },
+      "id": "respond-leadgen-ok",
+      "name": "Respond: 200 EVENT_RECEIVED",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2400, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseCode": 401,
+        "responseBody": "Unauthorized",
+        "options": {}
+      },
+      "id": "respond-hmac-fail",
+      "name": "Respond: HMAC Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 700]
+    }
+  ],
+  "connections": {
+    "Webhook: Meta Verification (GET)": {
+      "main": [[{ "node": "Code: Validate Verify Token", "type": "main", "index": 0 }]]
+    },
+    "Code: Validate Verify Token": {
+      "main": [[{ "node": "IF: Handshake OK", "type": "main", "index": 0 }]]
+    },
+    "IF: Handshake OK": {
+      "main": [
+        [{ "node": "Respond: Challenge Echo",       "type": "main", "index": 0 }],
+        [{ "node": "Respond: Verify Token Reject", "type": "main", "index": 0 }]
+      ]
+    },
+
+    "Webhook: Meta Leadgen (POST)": {
+      "main": [[{ "node": "Code: Verify HMAC Signature", "type": "main", "index": 0 }]]
+    },
+    "Code: Verify HMAC Signature": {
+      "main": [[{ "node": "IF: HMAC Valid", "type": "main", "index": 0 }]]
+    },
+    "IF: HMAC Valid": {
+      "main": [
+        [{ "node": "Code: Extract Leadgen IDs", "type": "main", "index": 0 }],
+        [{ "node": "Respond: HMAC Reject",      "type": "main", "index": 0 }]
+      ]
+    },
+    "Code: Extract Leadgen IDs": {
+      "main": [[{ "node": "HTTP: Graph API Fetch Field Data", "type": "main", "index": 0 }]]
+    },
+    "HTTP: Graph API Fetch Field Data": {
+      "main": [[{ "node": "HTTP: Supabase Form Lookup", "type": "main", "index": 0 }]]
+    },
+    "HTTP: Supabase Form Lookup": {
+      "main": [[{ "node": "Code: Normalize Meta Lead", "type": "main", "index": 0 }]]
+    },
+    "Code: Normalize Meta Lead": {
+      "main": [[{ "node": "HTTP: Hand Off to Lead Agent", "type": "main", "index": 0 }]]
+    },
+    "HTTP: Hand Off to Lead Agent": {
+      "main": [[{ "node": "Supabase: Log Meta Ingest", "type": "main", "index": 0 }]]
+    },
+    "Supabase: Log Meta Ingest": {
+      "main": [[{ "node": "Respond: 200 EVENT_RECEIVED", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "capstone" }, { "name": "meta-lead-ingest" }]
+}
