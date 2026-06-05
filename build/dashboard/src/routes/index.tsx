@@ -16,7 +16,6 @@ import { relativeTime, formatLakhs } from '@/lib/format';
 import { humanize, toneCls } from '@/lib/humanize';
 import { ArrowUp, ArrowDown, Crown, AlertCircle, UserCog, ChevronRight, Megaphone, Target } from 'lucide-react';
 import { useAuth, useRole, useCapabilities, ROLE_LABELS } from '@/lib/auth';
-import { LiveLeadTester } from '@/components/LiveLeadTester';
 import { SourceFunnelCard } from '@/components/SourceFunnelCard';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
@@ -241,12 +240,7 @@ function CommandCenter() {
         )}
       </div>
 
-      {/* Live agent tester — sales_head + admin only. Real n8n hit, end-to-end. */}
-      {(role === 'sales_head' || role === 'admin') && (
-        <div data-anim="rise" data-stagger="2.5">
-          <LiveLeadTester />
-        </div>
-      )}
+      {/* LiveLeadTester removed from /today — kept available as a component if needed elsewhere */}
 
       {/* Marketing persona — source funnel with per-channel CPL/CPV/CPB */}
       {role === 'marketing' && (

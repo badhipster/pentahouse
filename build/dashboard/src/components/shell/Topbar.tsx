@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
-import { Bell, Search, Moon, Sun, LogOut, User as UserIcon, Mail, ChevronDown } from 'lucide-react';
+import { Bell, Search, Moon, Sun, LogOut, User as UserIcon, Mail, ChevronDown, AlertCircle, X, Sparkles } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/stores/app-store';
-import { fixtures } from '@/lib/fixtures';
+import { getEscalations, getPendingApprovals, acknowledgeEscalation } from '@/lib/data';
 import { CommandPalette } from './CommandPalette';
 import { useAuth, ROLE_LABELS } from '@/lib/auth';
+import { relativeTime } from '@/lib/format';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -21,9 +23,46 @@ const ROLE_BADGE_CLS: Record<string, string> = {
 export function Topbar() {
   const setPaletteOpen = useAppStore((s) => s.setPaletteOpen);
   const acks = useAppStore((s) => s.ackEscalations);
-  const openEscalations = fixtures.escalations.filter(
+  const ackEscalationStore = useAppStore((s) => s.ackEscalation);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement | null>(null);
+
+  // Real notifications: pulls from Supabase escalations + pending approvals.
+  // Refreshes every 10s. Bell badge shows total unread count.
+  const { data: rawEscalations = [] } = useQuery({
+    queryKey: ['escalations'],
+    queryFn: getEscalations,
+    refetchInterval: 10000,
+  });
+  const { data: pending = [] } = useQuery({
+    queryKey: ['pendingApprovals'],
+    queryFn: getPendingApprovals,
+    refetchInterval: 10000,
+  });
+  const unreadEscalations = rawEscalations.filter(
     (e: any) => (e.status === 'open' || e.status === 'acknowledged') && !acks.includes(e.id)
-  ).length;
+  );
+  const totalUnread = unreadEscalations.length + (Array.isArray(pending) ? pending.length : 0);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!bellOpen) return;
+    function onDown(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [bellOpen]);
+
+  async function dismissEscalation(id: string) {
+    ackEscalationStore(id);
+    try { await acknowledgeEscalation(id); } catch {}
+    qc.invalidateQueries({ queryKey: ['escalations'] });
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -64,14 +103,75 @@ export function Topbar() {
         <Sun className="size-4 dark:hidden" />
         <Moon className="size-4 hidden dark:inline" />
       </Button>
-      <div className="relative">
-        <Button variant="ghost" size="icon">
+      <div className="relative" ref={bellRef}>
+        <Button variant="ghost" size="icon" onClick={() => setBellOpen((o) => !o)} aria-label="Notifications">
           <Bell className="size-4" />
         </Button>
-        {openEscalations > 0 && (
+        {totalUnread > 0 && (
           <span className="absolute top-1 right-1 size-4 rounded-full bg-destructive text-destructive-foreground text-[10px] grid place-items-center tabular-nums font-medium">
-            {openEscalations}
+            {totalUnread}
           </span>
+        )}
+
+        {bellOpen && (
+          <div className="absolute right-0 top-full mt-1.5 w-80 rounded-md border bg-popover shadow-lg z-50 py-1 text-sm">
+            <div className="px-3 py-2 border-b flex items-center justify-between">
+              <div className="font-semibold text-sm">Notifications</div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">{totalUnread} unread</div>
+            </div>
+
+            {totalUnread === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                You're all caught up. No alerts right now.
+              </div>
+            ) : (
+              <div className="max-h-[400px] overflow-y-auto divide-y">
+                {/* Pending approvals */}
+                {Array.isArray(pending) && pending.slice(0, 5).map((m: any) => (
+                  <button
+                    key={m.message_id ?? m.id}
+                    onClick={() => { setBellOpen(false); navigate({ to: '/approvals' }); }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-muted/40 flex items-start gap-2"
+                  >
+                    <Sparkles className="size-3.5 text-primary mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] font-medium leading-tight">A message is ready for your approval</div>
+                      <div className="text-[10.5px] text-muted-foreground mt-0.5 truncate">{m.lead_name ?? 'Lead'} · {relativeTime(m.created_at)}</div>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Escalations */}
+                {unreadEscalations.slice(0, 5).map((e: any) => (
+                  <div key={e.id} className="px-3 py-2.5 hover:bg-muted/40 flex items-start gap-2">
+                    <AlertCircle className="size-3.5 text-rose-600 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] font-medium leading-tight">{e.reason_text ?? 'A lead needs your attention'}</div>
+                      <div className="text-[10.5px] text-muted-foreground mt-0.5 truncate">{relativeTime(e.created_at)}</div>
+                    </div>
+                    <button
+                      onClick={() => dismissEscalation(e.id)}
+                      className="text-muted-foreground hover:text-foreground p-0.5"
+                      aria-label="Dismiss"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {totalUnread > 0 && (
+              <div className="px-3 py-2 border-t">
+                <button
+                  onClick={() => { setBellOpen(false); navigate({ to: '/approvals' }); }}
+                  className="text-[11px] text-primary font-medium hover:underline"
+                >
+                  View all in approvals →
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
       <UserMenu />

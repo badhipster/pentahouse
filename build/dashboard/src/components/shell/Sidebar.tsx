@@ -50,9 +50,6 @@ const SECTIONS_BY_ROLE: Record<Role, ReadonlyArray<{
     { eyebrow: 'Performance', items: [
       { to: '/analytics', label: 'Source funnel', icon: BarChart3 },
     ]},
-    { eyebrow: 'Behind the scenes', items: [
-      { to: '/agents', label: 'AI assistants', icon: Cpu },
-    ]},
   ],
   // Aggregator persona — placeholder for v2 multi-tenant release.
   // v1 just shows Today so the role doesn't crash if accidentally assigned.

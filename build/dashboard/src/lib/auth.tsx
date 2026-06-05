@@ -161,7 +161,7 @@ const ROLE_CAPABILITIES: Record<Role, {
     showsAnalytics: false,
   },
   marketing: {
-    routes: new Set(['/', '/properties', '/analytics', '/agents', '/campaigns']),
+    routes: new Set(['/', '/properties', '/analytics', '/campaigns']),
     showsCampaigns: true,
     showsAllLeads: false,
     showsInventoryEdit: true,
