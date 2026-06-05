@@ -25,8 +25,8 @@ const SECTIONS_BY_ROLE: Record<Role, ReadonlyArray<{
       { to: '/campaigns',  label: 'Creative approvals', icon: Megaphone },
       { to: '/analytics',  label: 'Where wins come from', icon: BarChart3 },
     ]},
-    { eyebrow: 'AI floor', items: [
-      { to: '/agents', label: 'Agent observatory', icon: Cpu },
+    { eyebrow: 'Behind the scenes', items: [
+      { to: '/agents', label: 'AI assistants', icon: Cpu },
     ]},
   ],
   sales_rep: [
@@ -50,8 +50,8 @@ const SECTIONS_BY_ROLE: Record<Role, ReadonlyArray<{
     { eyebrow: 'Performance', items: [
       { to: '/analytics', label: 'Source funnel', icon: BarChart3 },
     ]},
-    { eyebrow: 'AI floor', items: [
-      { to: '/agents', label: 'Agent observatory', icon: Cpu },
+    { eyebrow: 'Behind the scenes', items: [
+      { to: '/agents', label: 'AI assistants', icon: Cpu },
     ]},
   ],
   // Aggregator persona — placeholder for v2 multi-tenant release.
@@ -153,7 +153,7 @@ export function Sidebar() {
       <div className="px-6 py-4 space-y-2">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <span className="size-1.5 rounded-full bg-success animate-pulse" />
-          <span>Live · Supabase + n8n</span>
+          <span>Live updates</span>
         </div>
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
           Signed in as <span className="text-foreground font-medium">{roleLabel.full}</span>

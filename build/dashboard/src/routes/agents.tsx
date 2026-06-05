@@ -19,8 +19,8 @@ const sheetUrl = (tab: string) => `https://docs.google.com/spreadsheets/d/${SALE
 export const Route = createFileRoute('/agents')({
   head: () => ({
     meta: [
-      { title: 'Agent Observatory — Pentahouse' },
-      { name: 'description', content: 'Live status of the 5 AI agents powering Pentahouse.' },
+      { title: 'Your AI assistants — Pentahouse' },
+      { name: 'description', content: 'Live status of the five AI assistants working alongside your team.' },
     ],
   }),
   component: AgentObservatory,
@@ -42,67 +42,66 @@ const AGENT_META: Record<string, {
   'Listing Agent': {
     icon: Building2,
     tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30',
-    role: 'Ingests new inventory from RERA and developer brochures.',
-    capability: 'Structured extraction',
-    model: 'Gemini 2.5 Flash',
-    technique: 'responseSchema-enforced JSON extraction',
+    role: 'Pulls new project details straight from RERA so your inventory stays current.',
+    capability: 'Auto-updates inventory',
+    model: 'Always on',
+    technique: 'Reads RERA listings + project brochures cleanly',
     cta: { label: 'View inventory', to: '/properties' },
     writesTo: [
-      { label: 'properties', icon: Database },
-      { label: 'property_embeddings', icon: Database },
+      { label: 'Your inventory', icon: Database },
     ],
   },
   'Ad Agent': {
     icon: Megaphone,
     tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30',
-    role: 'Drafts Meta, Google, and portal campaigns per property.',
-    capability: 'Creative generation',
-    model: 'Gemini 2.5 Flash',
-    technique: 'Few-shot + previous-campaign context',
+    role: 'Writes ad copy for Meta, Google, and portals based on each project.',
+    capability: 'Draft ad creative',
+    model: 'Always on',
+    technique: 'Learns from past campaigns to vary headlines and audiences',
     cta: { label: 'View campaigns', to: '/properties' },
     writesTo: [
-      { label: 'campaigns', icon: Database },
-      { label: 'Sheet · Campaigns tab', icon: FileSpreadsheet, href: sheetUrl('Campaigns') },
+      { label: 'Campaign records', icon: Database },
+      { label: 'Sales ops sheet · Campaigns', icon: FileSpreadsheet, href: sheetUrl('Campaigns') },
     ],
   },
   'Lead Agent': {
     icon: Brain,
     tone: 'bg-primary/10 text-primary border-primary/30',
-    role: 'Scores every inbound lead within seconds and matches to inventory.',
-    capability: 'RAG + LLM scoring',
-    model: 'Gemini 2.5 Flash (Pro fallback)',
-    technique: 'pgvector embeddings (768d) → retrieval → structured score',
+    role: 'Scores every new lead in seconds and matches them to your best-fit inventory.',
+    capability: 'Score and match leads',
+    model: 'Always on',
+    technique: 'Reads buyer intent, finds the right property, ranks the lead',
     cta: { label: 'View leads', to: '/leads' },
     writesTo: [
-      { label: 'leads + lead_scores', icon: Database },
-      { label: 'Sheet · Leads tab', icon: FileSpreadsheet, href: sheetUrl('Leads') },
+      { label: 'Lead profile + score', icon: Database },
+      { label: 'Sales ops sheet · Leads', icon: FileSpreadsheet, href: sheetUrl('Leads') },
     ],
   },
   'Nurture Agent': {
     icon: MessageSquareText,
     tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
-    role: 'Drafts personalized WhatsApp follow-ups in English and Hindi.',
-    capability: 'Multi-language conversational AI',
-    model: 'Gemini 2.5 Flash',
-    technique: 'Score-conditional templates + Twilio approval gate',
+    role: 'Drafts personalized WhatsApp follow-ups in English or Hindi for your approval.',
+    capability: 'Draft buyer messages',
+    model: 'Always on',
+    technique: 'Picks the right tone for each lead, you approve before send',
     cta: { label: 'Review drafts', to: '/approvals' },
     writesTo: [
-      { label: 'messages', icon: Database },
-      { label: 'Twilio WhatsApp (post-approval)', icon: MessageSquareText },
+      { label: 'Conversation log', icon: Database },
+      { label: 'WhatsApp (after you approve)', icon: MessageSquareText },
     ],
   },
   'Conversion Agent': {
     icon: Handshake,
     tone: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30',
-    role: 'Analyzes site-visit outcomes, extracts objections, validates bookings.',
-    capability: 'Per-objection severity scoring',
-    model: 'Gemini 2.5 Flash',
-    technique: 'Sentiment + structured objection taxonomy + booking sanity',
+    role: 'Reads site-visit notes to surface objections, sentiment, and booking signals.',
+    capability: 'Read visit outcomes',
+    model: 'Always on',
+    technique: 'Spots common objections and flags unusual booking amounts',
     cta: { label: 'View visits', to: '/visits' },
     writesTo: [
-      { label: 'visits + bookings', icon: Database },
-      { label: 'Sheet · Visits tab', icon: FileSpreadsheet, href: sheetUrl('Visits') },
-      { label: 'Sheet · Bookings tab', icon: FileSpreadsheet, href: sheetUrl('Bookings') },
+      { label: 'Visits + bookings', icon: Database },
+      { label: 'Sales ops sheet · Visits', icon: FileSpreadsheet, href: sheetUrl('Visits') },
+      { label: 'Sales ops sheet · Bookings', icon: FileSpreadsheet, href: sheetUrl('Bookings') },
       { label: 'Google Calendar', icon: Calendar },
     ],
   },
@@ -118,19 +117,19 @@ function AgentObservatory() {
   return (
     <div className="p-8 space-y-7 max-w-[1600px] mx-auto">
       <header data-anim="rise" data-stagger="1">
-        <div className="eyebrow">AI floor</div>
-        <h1 className="font-display text-[44px] leading-[1.02] mt-1">Agent Observatory</h1>
+        <div className="eyebrow">Your AI team</div>
+        <h1 className="font-display text-[44px] leading-[1.02] mt-1">Five assistants working alongside you</h1>
         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          Five AI agents work alongside your team — scoring, drafting, analyzing. Their work is visible here so you stay in command.
+          Each one does a specific job — scoring leads, drafting messages, reading visit notes. Their work is visible here so you always know what just happened.
         </p>
       </header>
 
       {/* Capability summary strip — what the AI brings to the floor */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-anim="rise" data-stagger="2">
-        <CapabilityChip icon={Sparkles} label="RAG" value="pgvector + Gemini embeddings" />
-        <CapabilityChip icon={Brain}    label="Structured output" value="responseSchema-enforced JSON" />
-        <CapabilityChip icon={Activity} label="Retry + fallback" value="Flash → Flash-Lite → Pro" />
-        <CapabilityChip icon={Zap}      label="Real-time" value="n8n event-driven orchestration" />
+        <CapabilityChip icon={Sparkles} label="Inventory matching" value="Buyers matched to your live inventory" />
+        <CapabilityChip icon={Brain}    label="Reliable scoring" value="Every lead gets a clear score and reason" />
+        <CapabilityChip icon={Activity} label="Always on" value="Never drops a lead, retries if a step is slow" />
+        <CapabilityChip icon={Zap}      label="Seconds, not hours" value="First reply drafted while the buyer is still on the page" />
       </div>
 
       {/* Per-agent cards */}
@@ -145,48 +144,48 @@ function AgentObservatory() {
       {/* Data destinations summary — judges and auditors want this map */}
       <Card className="p-5" data-anim="rise" data-stagger="4">
         <div className="eyebrow flex items-center gap-1.5">
-          <Database className="size-3" /> Data architecture
+          <Database className="size-3" /> Where your data lives
         </div>
-        <h2 className="font-display text-xl mt-0.5 mb-3">Where everything is saved</h2>
+        <h2 className="font-display text-xl mt-0.5 mb-3">Everything stays in one place you can trust</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px]">
           <div className="p-3 rounded-md border bg-muted/20">
             <div className="flex items-center gap-2 mb-1.5">
               <Database className="size-4 text-primary" />
-              <div className="font-medium">Supabase (system of record)</div>
+              <div className="font-medium">Your database</div>
             </div>
             <ul className="text-[11px] text-muted-foreground space-y-0.5">
-              <li>· leads, lead_scores, messages</li>
-              <li>· visits, bookings, campaigns</li>
-              <li>· agent_events, agent_logs</li>
-              <li>· properties + 768d embeddings</li>
+              <li>· Leads, scores, messages</li>
+              <li>· Site visits and bookings</li>
+              <li>· Campaign records</li>
+              <li>· Inventory and project details</li>
             </ul>
           </div>
           <div className="p-3 rounded-md border bg-muted/20">
             <div className="flex items-center gap-2 mb-1.5">
               <FileSpreadsheet className="size-4 text-emerald-600" />
-              <div className="font-medium">Google Sheets (sales ops mirror)</div>
+              <div className="font-medium">Your sales ops sheet</div>
             </div>
             <ul className="text-[11px] text-muted-foreground space-y-0.5">
-              <li>· Leads tab (Lead Agent)</li>
-              <li>· Campaigns tab (Ad Agent · 3 rows/run)</li>
-              <li>· Visits tab (Conversion Agent)</li>
-              <li>· Bookings tab (Conversion Agent)</li>
+              <li>· Leads tab — every new lead</li>
+              <li>· Campaigns tab — live ad creative</li>
+              <li>· Visits tab — every site visit logged</li>
+              <li>· Bookings tab — closed deals + attribution</li>
             </ul>
             <a href={`https://docs.google.com/spreadsheets/d/${SALES_OPS_SHEET_ID}`} target="_blank" rel="noopener noreferrer"
                className="inline-flex items-center gap-1 mt-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 hover:underline">
-              Open live sheet <ExternalLink className="size-2.5" />
+              Open the sheet <ExternalLink className="size-2.5" />
             </a>
           </div>
           <div className="p-3 rounded-md border bg-muted/20">
             <div className="flex items-center gap-2 mb-1.5">
               <Calendar className="size-4 text-violet-600" />
-              <div className="font-medium">External services</div>
+              <div className="font-medium">Connected channels</div>
             </div>
             <ul className="text-[11px] text-muted-foreground space-y-0.5">
-              <li>· Google Calendar (site visits)</li>
-              <li>· Twilio WhatsApp (post-approval)</li>
-              <li>· Meta Lead Ads (inbound)</li>
-              <li>· EspoCRM (lead push)</li>
+              <li>· Google Calendar — site visit invites</li>
+              <li>· WhatsApp — after you approve a draft</li>
+              <li>· Meta Lead Ads — inbound buyer forms</li>
+              <li>· Your existing CRM — optional sync</li>
             </ul>
           </div>
         </div>
@@ -239,9 +238,9 @@ function AgentCard({ agent, meta }: { agent: any; meta: any }) {
 
         {/* AI capability stack */}
         <div className="mt-3.5 grid grid-cols-3 gap-2 text-[11px]">
-          <Stat label="Capability" value={meta.capability} />
-          <Stat label="Model" value={meta.model} />
-          <Stat label="Technique" value={meta.technique} />
+          <Stat label="What it does" value={meta.capability} />
+          <Stat label="Status" value={meta.model} />
+          <Stat label="How it helps" value={meta.technique} />
         </div>
       </div>
 

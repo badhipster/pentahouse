@@ -65,15 +65,15 @@ export function LiveLeadTester() {
       let parsed: any;
       try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
       if (!res.ok) {
-        setError(`Webhook returned ${res.status}: ${text.slice(0, 200)}`);
-        toast.error('Lead Agent webhook failed');
+        setError(`Something went wrong (${res.status}). Please try again.`);
+        toast.error('Could not score the lead');
       } else {
         setResult(parsed);
-        toast.success('Lead scored. Check /leads and the Sales Ops sheet.');
+        toast.success('Lead scored. Open Leads to see it.');
       }
     } catch (e: any) {
-      setError(e.message || 'Network error. Is n8n running on localhost:5678?');
-      toast.error('Cannot reach n8n');
+      setError(e.message || 'Network issue. Please check your connection and retry.');
+      toast.error('Could not reach the assistant');
     } finally {
       setSubmitting(false);
     }
@@ -84,15 +84,15 @@ export function LiveLeadTester() {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="eyebrow flex items-center gap-1.5">
-            <Sparkles className="size-3" /> Live agent test
+            <Sparkles className="size-3" /> See it work
           </div>
-          <h2 className="font-display text-xl mt-0.5">Try a real lead</h2>
+          <h2 className="font-display text-xl mt-0.5">Try a sample lead</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Send a synthetic lead through the actual Lead Agent. Watch the AI score it, match a property, and write to Supabase + Google Sheets.
+            Send a sample buyer through the assistant. Watch it score the lead, match a project, and draft a reply ready for your review.
           </p>
         </div>
         <Badge variant="outline" className="text-[10px] uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 shrink-0">
-          Real n8n
+          Live
         </Badge>
       </div>
 
@@ -117,9 +117,9 @@ export function LiveLeadTester() {
 
       <Button onClick={fire} disabled={submitting} className="w-full">
         {submitting ? (
-          <><Loader2 className="size-3.5 animate-spin" /> Lead Agent scoring…</>
+          <><Loader2 className="size-3.5 animate-spin" /> Scoring the lead…</>
         ) : (
-          <><Play className="size-3.5" /> Fire test lead → Lead Agent</>
+          <><Play className="size-3.5" /> Send sample lead through the assistant</>
         )}
       </Button>
 
@@ -128,7 +128,7 @@ export function LiveLeadTester() {
         <div className="mt-4 p-3 rounded-md border bg-emerald-500/5 border-emerald-500/30">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="size-4 text-emerald-600" />
-            <div className="text-sm font-semibold">Agent responded</div>
+            <div className="text-sm font-semibold">Done — lead scored</div>
           </div>
           <ResultGrid result={result} />
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -154,11 +154,11 @@ export function LiveLeadTester() {
         <div className="mt-4 p-3 rounded-md border bg-rose-500/5 border-rose-500/30">
           <div className="flex items-center gap-2 mb-1.5">
             <AlertCircle className="size-4 text-rose-600" />
-            <div className="text-sm font-semibold">Agent error</div>
+            <div className="text-sm font-semibold">Could not score the lead</div>
           </div>
           <div className="text-xs text-muted-foreground break-words">{error}</div>
           <div className="text-[10px] text-muted-foreground/80 mt-1.5">
-            Check that n8n is running and the Lead Agent workflow is Active.
+            If this keeps happening, ask your admin to check the connection.
           </div>
         </div>
       )}

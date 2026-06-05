@@ -19,6 +19,7 @@ import { AgentBadge } from '@/components/AgentBadge';
 import { LeadJourneyTimeline } from '@/components/LeadJourneyTimeline';
 import { ScheduleVisitModal } from '@/components/ScheduleVisitModal';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
+import { useRole } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 // === Sales-head-readable derivations ===========================================
@@ -131,6 +132,7 @@ export const Route = createFileRoute('/leads/$id')({
 
 function LeadDetail() {
   const { lead } = Route.useLoaderData() as { lead: any };
+  const role = useRole();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
@@ -365,11 +367,12 @@ function LeadDetail() {
               {intentFields.map(([label, value]) => (
                 <div key={label}>
                   <div className="text-[10px] uppercase text-muted-foreground tracking-wide">{label}</div>
-                  <div className={cn(
-                    'mt-0.5',
-                    !value && 'italic text-muted-foreground/60'
-                  )}>
-                    {value ?? 'Not captured yet'}
+                  <div className="mt-0.5">
+                    {value ?? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-500/10 rounded px-1.5 py-0.5">
+                        <AlertCircle className="size-3" /> Still to ask
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -422,7 +425,8 @@ function LeadDetail() {
       {/* Per-lead agent journey — every step the 5 agents took on this lead */}
       <LeadJourneyTimeline leadId={lead.lead_id} />
 
-      {/* Activity */}
+      {/* Activity — raw agent log. Hidden for sales reps so their view stays jargon-free; sales heads/admins keep the observability. */}
+      {role !== 'sales_rep' && (
       <Card className="p-5">
         <Collapsible open={activityOpen} onOpenChange={setActivityOpen}>
           <CollapsibleTrigger asChild>
@@ -443,6 +447,7 @@ function LeadDetail() {
           </CollapsibleContent>
         </Collapsible>
       </Card>
+      )}
 
       {/* Visits */}
       <Card className="p-5">

@@ -197,10 +197,10 @@ export function ScheduleVisitModal({ open, onOpenChange, lead, property }: Props
             <div className="rounded-md bg-primary/5 border border-primary/20 p-2.5 text-[11px] text-muted-foreground">
               <div className="font-medium text-foreground mb-0.5">On Schedule:</div>
               <ul className="space-y-0.5 list-disc list-inside">
-                <li>Visit row created in Supabase</li>
-                <li>Google Calendar event with Meet link generated</li>
-                <li>.ics invite emailed to attendees</li>
-                <li>T-24h and T-2h reminders auto-drafted by Visit Reminders agent</li>
+                <li>Visit is added to your schedule</li>
+                <li>Calendar invite with a video meeting link is created</li>
+                <li>Invite is emailed to everyone attending</li>
+                <li>You'll get reminder drafts 24 hours and 2 hours before</li>
               </ul>
             </div>
           </div>

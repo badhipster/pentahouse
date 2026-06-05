@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getKPIs, getPrimaryMetric, getEscalations, getAgentLogs, getAgentEvents,
-  acknowledgeEscalation,
+  acknowledgeEscalation, getLeadQueue, getSourceFunnel,
 } from '@/lib/data';
 import { useAppStore } from '@/stores/app-store';
 import { KpiCard } from '@/components/KpiCard';
@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { relativeTime } from '@/lib/format';
+import { relativeTime, formatLakhs } from '@/lib/format';
 import { humanize, toneCls } from '@/lib/humanize';
 import { ArrowUp, ArrowDown, Crown, AlertCircle, UserCog, ChevronRight, Megaphone, Target } from 'lucide-react';
 import { useAuth, useRole, useCapabilities, ROLE_LABELS } from '@/lib/auth';
@@ -34,10 +34,32 @@ export const Route = createFileRoute('/')({
 });
 
 const reasonBadge = (code: string) => {
-  if (code === 'vip_budget') return { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', label: 'VIP budget', icon: Crown };
-  if (code === 'low_confidence') return { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', label: 'Low confidence', icon: AlertCircle };
-  return { cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30', label: 'Human requested', icon: UserCog };
+  if (code === 'vip_budget') return { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', label: 'Big budget', icon: Crown };
+  if (code === 'low_confidence') return { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', label: 'Worth a check', icon: AlertCircle };
+  return { cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30', label: 'Asked for a person', icon: UserCog };
 };
+
+// Rep worklist helpers — plain-language status + one-liner so a rep reads the
+// queue like a to-do list, not a scorecard. No model numbers on the surface.
+function repPill(l: any) {
+  if (!l.purpose || l.budget_lakhs == null)
+    return { label: 'Ask a question', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' };
+  const o = l.overall_score ?? 0;
+  if (o >= 80) return { label: 'Strong match', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' };
+  if (o >= 50) return { label: 'Worth a call', cls: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30' };
+  return { label: 'Long-term nurture', cls: 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-400/30' };
+}
+function repOneLiner(l: any): string {
+  const parts: string[] = [];
+  if (l.preferred_config) parts.push(String(l.preferred_config));
+  if (l.preferred_locality || l.preferred_city) parts.push(`in ${l.preferred_locality || l.preferred_city}`);
+  if (l.budget_lakhs != null) parts.push(`around ${formatLakhs(l.budget_lakhs)}`);
+  if (l.purchase_timeline) parts.push(`· ${l.purchase_timeline}`);
+  return parts.length ? parts.join(' ') : 'New enquiry — details to confirm';
+}
+function initials(name: string | null | undefined): string {
+  return (name || '?').split(' ').map((s) => s[0]).filter(Boolean).slice(0, 2).join('');
+}
 
 function CommandCenter() {
   const qc = useQueryClient();
@@ -75,6 +97,21 @@ function CommandCenter() {
     queryKey: ['agentEvents'],
     queryFn: getAgentEvents,
     refetchInterval: 30000,
+  });
+  const { data: leadQueue = [] } = useQuery({
+    queryKey: ['leadQueue'],
+    queryFn: getLeadQueue,
+    refetchInterval: 15000,
+    enabled: role === 'sales_rep',
+  });
+  const worklist = (leadQueue as any[])
+    .filter((l) => ['New', 'Qualified'].includes(l.stage))
+    .slice(0, 5);
+  const { data: sourceRows = [] } = useQuery({
+    queryKey: ['sourceFunnelChart'],
+    queryFn: getSourceFunnel,
+    refetchInterval: 30000,
+    enabled: role === 'marketing',
   });
 
   const leadsDelta = k.leads_today - k.leads_yesterday;
@@ -120,9 +157,9 @@ function CommandCenter() {
               subtitle="Across Meta, Google, portals"
             />
             <KpiCard
-              label="Blended CPL"
+              label="Cost per lead"
               value={<>₹<span>{Math.round((k.total_spend_30d_inr / Math.max(1, k.leads_30d)) || 0).toLocaleString('en-IN')}</span></>}
-              subtitle={`${k.leads_30d} leads in 30 days`}
+              subtitle={`Across ${k.leads_30d} leads this month`}
             />
             <KpiCard
               label="Cost per booking"
@@ -141,21 +178,21 @@ function CommandCenter() {
         ) : role === 'sales_rep' ? (
           <>
             <KpiCard
-              label="My first-reply speed"
-              value={p.measured ? <><span>{p.median_sec_to_first_response_today}</span><span className="text-base text-muted-foreground ml-1">s</span></> : <span className="text-muted-foreground text-base font-normal">No measured runs yet</span>}
-              subtitle={p.measured ? 'Industry baseline 5 hours. Stay under 5 minutes.' : 'Approve a draft to measure your response speed.'}
+              label="My reply speed"
+              value={p.measured ? <><span>{p.median_sec_to_first_response_today}</span><span className="text-base text-muted-foreground ml-1">s</span></> : <span className="text-muted-foreground text-base font-normal">Nothing to show yet</span>}
+              subtitle={p.measured ? 'Most teams take hours. Keep it under a minute.' : 'Send your first reply and this fills in.'}
               tone={p.measured && p.median_sec_to_first_response_today! < 300 ? 'success' : p.measured && p.median_sec_to_first_response_today! < 1800 ? 'warning' : 'default'}
             />
             <KpiCard
-              label="My active deals"
+              label="People I'm working with"
               value={k.qualified_30d}
               subtitle="Across all stages"
             />
             <Link to="/approvals" className="block">
               <KpiCard
-                label="Drafts to approve"
+                label="Replies to approve"
                 value={k.pending_approvals}
-                subtitle={k.pending_approvals > 0 ? 'Open queue →' : 'All clear.'}
+                subtitle={k.pending_approvals > 0 ? 'Read and send →' : "You're all caught up."}
                 tone={k.pending_approvals > 0 ? 'warning' : 'default'}
               />
             </Link>
@@ -172,8 +209,8 @@ function CommandCenter() {
               label="First reply to a new lead"
               value={p.measured ? <><span>{p.median_sec_to_first_response_today}</span><span className="text-base text-muted-foreground ml-1">s</span></> : <span className="text-muted-foreground text-base font-normal">No measured runs yet</span>}
               subtitle={p.measured
-                ? `Industry average: ${Math.round(p.industry_baseline_sec / 3600)}h. ${p.median_sec_to_first_response_today! < 60 ? 'Your team is faster.' : 'Aim for under 60s.'}`
-                : 'Run a lead through /webhook/new-lead, then approve a draft, to populate this metric.'}
+                ? `Most teams take ${Math.round(p.industry_baseline_sec / 3600)} hours. ${p.median_sec_to_first_response_today! < 60 ? 'Your team is faster.' : 'Aim for under a minute.'}`
+                : 'Your first answered lead will set this.'}
               tone={p.measured && p.median_sec_to_first_response_today! < 60 ? 'success' : 'default'}
             />
             <KpiCard
@@ -218,6 +255,41 @@ function CommandCenter() {
         </div>
       )}
 
+      {/* Sales rep — ranked "call these first" worklist, plain-language, no model numbers */}
+      {role === 'sales_rep' && worklist.length > 0 && (
+        <Card className="p-0 overflow-hidden" data-anim="rise" data-stagger="2.5">
+          <div className="px-5 py-4 border-b">
+            <div className="eyebrow">Your day</div>
+            <h2 className="font-display text-xl mt-0.5">Call these first</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Ranked by who's most worth your time right now. Start at the top.</p>
+          </div>
+          <ul className="divide-y">
+            {worklist.map((l: any) => {
+              const pill = repPill(l);
+              return (
+                <li key={l.lead_id} className="px-5 py-3.5 flex items-center gap-3">
+                  <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">
+                    {initials(l.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{l.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{repOneLiner(l)}</div>
+                  </div>
+                  <Badge variant="outline" className={cn('text-[10px] shrink-0', pill.cls)}>{pill.label}</Badge>
+                  <Link to="/leads/$id" params={{ id: l.lead_id }}>
+                    <Button size="sm" variant="outline" className="h-7 text-xs">
+                      Open <ChevronRight className="size-3" />
+                    </Button>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+
+      {/* Sales-floor feed + escalations — not relevant to marketing, hidden for that persona */}
+      {role !== 'marketing' && (
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" data-anim="rise" data-stagger="3">
         <Card className="lg:col-span-3 p-0 overflow-hidden">
           <div className="px-5 py-4 border-b flex items-center justify-between">
@@ -314,31 +386,62 @@ function CommandCenter() {
           </div>
         </Card>
       </div>
+      )}
 
       <Card className="p-5" data-anim="rise" data-stagger="4">
-        <div className="mb-3">
-          <div className="eyebrow">Funnel</div>
-          <h2 className="font-display text-xl mt-0.5">From inquiry to keys</h2>
-          <p className="text-xs text-muted-foreground mt-1">Last 7 days across every agent event</p>
-        </div>
-        <div className="h-[260px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={events} margin={{ top: 10, right: 10, left: -20, bottom: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-              <XAxis dataKey="event_name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" interval={0} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--popover)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Bar dataKey="count" fill="var(--primary)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {role === 'marketing' ? (
+          <>
+            <div className="mb-3">
+              <div className="eyebrow">Channels</div>
+              <h2 className="font-display text-xl mt-0.5">Leads by channel</h2>
+              <p className="text-xs text-muted-foreground mt-1">This month, by where buyers came from</p>
+            </div>
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sourceRows as any[]} margin={{ top: 10, right: 10, left: -20, bottom: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                  <XAxis dataKey="source" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" interval={0} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'var(--popover)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                  <Bar dataKey="leads_count" name="Leads" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-3">
+              <div className="eyebrow">Funnel</div>
+              <h2 className="font-display text-xl mt-0.5">From inquiry to keys</h2>
+              <p className="text-xs text-muted-foreground mt-1">Last 7 days across every agent event</p>
+            </div>
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={events} margin={{ top: 10, right: 10, left: -20, bottom: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                  <XAxis dataKey="event_name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" interval={0} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'var(--popover)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                  <Bar dataKey="count" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );

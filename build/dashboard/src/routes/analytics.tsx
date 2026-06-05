@@ -102,7 +102,7 @@ function Analytics() {
           { label: 'Qualified', value: k.qualified_30d },
           { label: 'Visits', value: k.visits_completed_30d },
           { label: 'Bookings', value: k.bookings_30d },
-          { label: 'Blended CPB', value: formatINR(k.blended_cpb_inr) },
+          { label: 'Cost per booking', value: formatINR(k.blended_cpb_inr) },
         ].map((s) => (
           <Card key={s.label} className="p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
@@ -128,9 +128,9 @@ function Analytics() {
                 <SortableHeader k="visits_completed" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">Visits</SortableHeader>
                 <SortableHeader k="bookings" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">Bookings</SortableHeader>
                 <SortableHeader k="total_spend_inr" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">Spend</SortableHeader>
-                <SortableHeader k="cost_per_lead" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">CPL</SortableHeader>
-                <SortableHeader k="cost_per_visit" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">CPV</SortableHeader>
-                <SortableHeader k="cost_per_booking" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">CPB</SortableHeader>
+                <SortableHeader k="cost_per_lead" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">Per lead</SortableHeader>
+                <SortableHeader k="cost_per_visit" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">Per visit</SortableHeader>
+                <SortableHeader k="cost_per_booking" current={sortKey} dir={sortDir} onClick={toggleSort} align="right">Per booking</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>

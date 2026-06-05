@@ -79,7 +79,7 @@ function CampaignApprovals() {
       .update({ status: 'Active' })
       .eq('id', c.id);
     if (error) { toast.error('Failed to approve'); return; }
-    toast.success(`${c.platform} campaign live`, { description: 'CAMPAIGN_LIVE event emitted.' });
+    toast.success(`${c.platform} creative approved`, { description: `Ready to launch — copy into ${c.platform} Ads Manager.` });
     qc.invalidateQueries({ queryKey: ['campaignsAll'] });
     setFocusedId(null);
     setEditMode(false);
@@ -92,7 +92,7 @@ function CampaignApprovals() {
       .update({ status: 'Active', ad_copy: editedCopy })
       .eq('id', c.id);
     if (error) { toast.error('Failed to save edit'); return; }
-    toast.success(`${c.platform} edited + live`);
+    toast.success(`${c.platform} creative approved`, { description: 'Your edited copy is ready to launch.' });
     qc.invalidateQueries({ queryKey: ['campaignsAll'] });
     setFocusedId(null);
     setEditMode(false);
@@ -130,6 +130,37 @@ function CampaignApprovals() {
           {profile?.display_name ?? 'Marketing'}
         </Badge>
       </header>
+
+      {/* What the Ad Agent does — always visible so the screen explains the assistant even when the queue is empty */}
+      <Card className="p-4" data-anim="rise" data-stagger="1.5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex-1 min-w-[220px]">
+            <div className="text-sm font-medium mb-1">What this assistant does</div>
+            <p className="text-xs text-muted-foreground leading-relaxed max-w-prose">
+              For any project in your catalogue, it writes ready-to-run ad creative for three channels — Meta, Google, and property portals. Each draft comes with a headline, body copy, a call-to-action, who to target, and a suggested budget. You review and approve before anything is used.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { n: '1', t: 'Reads the project', d: 'Price, config, location, USPs' },
+              { n: '2', t: 'Writes 3 channel ads', d: 'Meta · Google · Portal' },
+              { n: '3', t: 'You approve', d: 'Nothing used without you' },
+            ].map((s) => (
+              <div key={s.n} className="rounded-md border bg-muted/20 px-3 py-2 w-[150px]">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <span className="inline-flex items-center justify-center size-4 rounded-full bg-primary/10 text-primary text-[10px]">{s.n}</span>
+                  {s.t}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1">{s.d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 border-t pt-2.5 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <AlertCircle className="size-3.5 shrink-0 mt-px text-amber-600" />
+          <span>Live posting to Meta &amp; Google is on the roadmap. For now, approve here — the copy, audience, and budget are done for you to paste straight into Ads Manager.</span>
+        </div>
+      </Card>
 
       {drafts.length === 0 && recent.length === 0 ? (
         <Card className="p-12 text-center">
@@ -193,10 +224,15 @@ function CampaignApprovals() {
           {/* Focused detail */}
           <Card className="lg:col-span-3 p-0 overflow-hidden">
             {!focused ? (
-              <div className="p-12 text-center">
-                <Check className="size-10 text-emerald-500/40 mx-auto mb-3" />
-                <div className="font-display text-xl">Inbox clear</div>
-                <p className="text-sm text-muted-foreground mt-2">All pending drafts have been reviewed.</p>
+              <div className="p-10 text-center">
+                <Check className="size-10 text-emerald-500/50 mx-auto mb-3" />
+                <div className="font-display text-xl">All caught up</div>
+                <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+                  Every draft has been reviewed. To create more, open a project and generate ads — the three channel drafts appear here for your approval.
+                </p>
+                <Link to="/properties" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                  Generate ads for a project <ExternalLink className="size-3.5" />
+                </Link>
               </div>
             ) : (
               <>
@@ -206,7 +242,7 @@ function CampaignApprovals() {
                       {focused.platform}
                     </Badge>
                     <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                      <Sparkles className="size-2.5 mr-0.5" /> Drafted by Ad Agent · Gemini 2.5 Flash
+                      <Sparkles className="size-2.5 mr-0.5" /> Suggested ad
                     </Badge>
                   </div>
                   <h3 className="font-display text-xl leading-tight">{focused.campaign_name}</h3>
@@ -249,7 +285,7 @@ function CampaignApprovals() {
                   {!editMode ? (
                     <>
                       <Button onClick={() => approve(focused)} className="gap-1.5">
-                        <Check className="size-4" /> Approve and go live
+                        <Check className="size-4" /> Approve creative
                       </Button>
                       <Button variant="outline" onClick={() => { setEditMode(true); setEditedCopy(focused.ad_copy || ''); }} className="gap-1.5">
                         <Edit3 className="size-4" /> Edit copy
@@ -270,7 +306,7 @@ function CampaignApprovals() {
                   ) : (
                     <>
                       <Button onClick={() => editAndApprove(focused)} className="gap-1.5">
-                        <Check className="size-4" /> Save and go live
+                        <Check className="size-4" /> Save and approve
                       </Button>
                       <Button variant="ghost" onClick={() => { setEditMode(false); setEditedCopy(''); }}>Cancel</Button>
                     </>

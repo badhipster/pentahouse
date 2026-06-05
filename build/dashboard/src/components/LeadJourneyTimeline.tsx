@@ -8,6 +8,21 @@ import {
   Handshake, AlertTriangle, UserPlus, FileText, Sparkles,
 } from 'lucide-react';
 
+// Friendly labels for source_agent — strips internal naming, keeps sales-friendly words
+const FRIENDLY_AGENT: Record<string, string> = {
+  'Lead Agent': 'Lead scorer',
+  'Nurture Agent': 'Message drafter',
+  'Conversion Agent': 'Visit reader',
+  'Ad Agent': 'Campaign drafter',
+  'Listing Agent': 'Inventory sync',
+  'Inbound Reply Agent': 'WhatsApp listener',
+  'System': 'Reminder service',
+};
+function friendlyAgentName(name?: string | null): string {
+  if (!name) return '—';
+  return FRIENDLY_AGENT[name] || name;
+}
+
 // Map event_name -> visual treatment + readable label.
 // Single source of truth so the timeline is internally consistent.
 const EVENT_META: Record<string, {
@@ -25,7 +40,7 @@ const EVENT_META: Record<string, {
   LEAD_SCORED: {
     icon: Brain,
     tone: 'bg-primary/10 text-primary ring-primary/20',
-    label: (p) => `Lead Agent scored ${p?.overall_score ?? '—'}`,
+    label: (p) => `Lead scored ${p?.overall_score ?? '—'}`,
     detail: (p) => p?.recommended_action
       ? `Action: ${p.recommended_action}${p.matched_property ? ` · matched ${p.matched_property}` : ''}`
       : null,
@@ -33,7 +48,7 @@ const EVENT_META: Record<string, {
   MESSAGE_SENT: {
     icon: MessageSquareText,
     tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/20',
-    label: (p) => `Nurture Agent ${p?.template ? `sent ${p.template}` : 'sent a message'}`,
+    label: (p) => p?.template ? `Sent a ${p.template.replace(/_/g, ' ')} message` : `Sent a message`,
     detail: (p) => p?.preview ? `"${p.preview}…"` : (p?.channel ? `Channel: ${p.channel}` : null),
   },
   VISIT_SCHEDULED: {
@@ -140,7 +155,7 @@ export function LeadJourneyTimeline({ leadId }: { leadId: string }) {
                   <div className="text-[11.5px] text-muted-foreground mt-0.5 leading-snug">{detail}</div>
                 )}
                 <div className="text-[10px] text-muted-foreground/80 mt-1 tabular-nums">
-                  {ev.source_agent ?? '—'} · {relativeTime(ev.created_at)}
+                  {friendlyAgentName(ev.source_agent)} · {relativeTime(ev.created_at)}
                 </div>
               </div>
             </li>

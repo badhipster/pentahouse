@@ -32,7 +32,7 @@ export function SourceFunnelCard() {
         </div>
         <h3 className="font-display text-lg mt-0.5">No campaign data yet</h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Once leads start coming in by source, this card shows CPL, CPV, and CPB per channel.
+          Once leads start coming in by channel, this shows what each one costs per lead, visit, and booking.
         </p>
       </Card>
     );
@@ -48,19 +48,19 @@ export function SourceFunnelCard() {
           <TrendingUp className="size-3" /> Source funnel
         </div>
         <h2 className="font-display text-xl mt-0.5">Where wins come from</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Cost per lead, per site-visit, per booking, by channel.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">How many leads, visits, and bookings each channel brought — and what each cost.</p>
       </div>
 
       <div className="divide-y">
         <div className="grid grid-cols-12 gap-2 px-5 py-2 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30">
-          <div className="col-span-3">Source</div>
+          <div className="col-span-3">Channel</div>
           <div className="col-span-1 text-right">Leads</div>
-          <div className="col-span-1 text-right">Qual.</div>
+          <div className="col-span-1 text-right">Ready</div>
           <div className="col-span-1 text-right">Visits</div>
           <div className="col-span-1 text-right">Booked</div>
-          <div className="col-span-1 text-right">CPL</div>
-          <div className="col-span-2 text-right">CP-visit</div>
-          <div className="col-span-2 text-right">CP-booking</div>
+          <div className="col-span-1 text-right">Per lead</div>
+          <div className="col-span-2 text-right">Per visit</div>
+          <div className="col-span-2 text-right">Per booking</div>
         </div>
 
         {rows.map((r: any) => {

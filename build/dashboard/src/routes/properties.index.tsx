@@ -10,7 +10,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
-import { Plus, Building2, MapPin, CalendarClock, BadgeCheck, AlertTriangle, Sparkles } from 'lucide-react';
+import { Plus, Building2, MapPin, CalendarClock, BadgeCheck, AlertTriangle, Sparkles, Upload, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLakhs } from '@/lib/format';
 
@@ -31,6 +31,29 @@ function PropertiesIndex() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [rawText, setRawText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<'paste' | 'upload'>('paste');
+  const [fileName, setFileName] = useState('');
+
+  const onFile = async (e: any) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!/\.(txt|csv|md|json|tsv)$/i.test(f.name)) {
+      toast.error('Use a .txt, .csv, .md or .json file', {
+        description: 'For a PDF brochure, copy the text out and paste it instead.',
+      });
+      return;
+    }
+    const text = await f.text();
+    setRawText(text);
+    setFileName(f.name);
+    setMode('paste');
+    toast.success(`Loaded ${f.name}`, { description: 'Review the details, then add to catalogue.' });
+  };
+
+  const CAPTURE_FIELDS = [
+    'Project name', 'Developer', 'City & locality', 'Configurations (BHK)',
+    'Price band', 'RERA number', 'Possession date', 'Amenities & USPs',
+  ];
 
   const { data: properties = [] } = useQuery({
     queryKey: ['properties'],
@@ -65,7 +88,7 @@ function PropertiesIndex() {
           <div className="eyebrow">Catalogue</div>
           <h1 className="font-display text-[40px] leading-[1.05] mt-1">Inventory</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-xl">
-            {properties.length} active project{properties.length === 1 ? '' : 's'}. Paste a project paragraph and we extract the fields. No data entry.
+            {properties.length} active project{properties.length === 1 ? '' : 's'}. Paste a project paragraph or upload a sheet — we extract the fields. No manual data entry.
           </p>
         </div>
         <Button onClick={() => setSheetOpen(true)} className="bg-primary text-primary-foreground hover:opacity-90 btn-press">
@@ -78,7 +101,7 @@ function PropertiesIndex() {
           <Building2 className="size-12 mx-auto mb-3 opacity-30" />
           <div className="text-base font-medium">No projects yet</div>
           <p className="text-sm text-muted-foreground mt-1">
-            Click "Add a project" and paste anything — a paragraph, a CSV row, a brochure excerpt.
+            Click "Add a project" — paste a paragraph or upload a price sheet, and we extract the rest.
           </p>
         </Card>
       ) : (
@@ -146,29 +169,68 @@ function PropertiesIndex() {
             </SheetTitle>
           </SheetHeader>
           <div className="px-4 space-y-4">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">
-                Paste anything — a paragraph, brochure excerpt, broker note
-              </label>
-              <Textarea
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                rows={10}
-                placeholder="Drop the project info here. The Listing Agent will extract project name, developer, city, locality, BHK, prices, RERA, possession date, and amenities automatically."
-                className="mt-1 font-mono text-xs"
-              />
+            {/* Input method toggle — paste or upload a file, both feed the same extractor */}
+            <div className="inline-flex rounded-md border p-0.5 text-xs">
               <button
                 type="button"
-                onClick={() => setRawText(SAMPLE)}
-                className="text-[11px] text-primary hover:underline mt-1.5"
+                onClick={() => setMode('paste')}
+                className={cn('px-3 py-1.5 rounded transition-colors', mode === 'paste' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
               >
-                Use a sample to try
+                <FileText className="size-3 inline mr-1" /> Paste details
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('upload')}
+                className={cn('px-3 py-1.5 rounded transition-colors', mode === 'upload' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                <Upload className="size-3 inline mr-1" /> Upload a file
               </button>
             </div>
+
+            {mode === 'paste' ? (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Paste anything — a paragraph, brochure excerpt, broker note, or a price-sheet row
+                </label>
+                <Textarea
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  rows={9}
+                  placeholder="Drop the project info here. We extract project name, developer, city, locality, BHK, prices, RERA, possession date, and amenities automatically."
+                  className="mt-1 font-mono text-xs"
+                />
+                <div className="flex items-center gap-3 mt-1.5">
+                  <button type="button" onClick={() => { setRawText(SAMPLE); setFileName(''); }} className="text-[11px] text-primary hover:underline">
+                    Use a sample to try
+                  </button>
+                  {fileName && <span className="text-[11px] text-muted-foreground">From {fileName}</span>}
+                </div>
+              </div>
+            ) : (
+              <label className="block rounded-lg border-2 border-dashed px-4 py-8 text-center cursor-pointer hover:bg-muted/30 transition-colors">
+                <input type="file" accept=".txt,.csv,.md,.json,.tsv" className="hidden" onChange={onFile} />
+                <Upload className="size-7 mx-auto mb-2 text-muted-foreground" />
+                <div className="text-sm font-medium">Choose a file to upload</div>
+                <div className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
+                  A price sheet, inventory export, or fact sheet — .txt, .csv, .md or .json. For a PDF brochure, copy the text and use Paste details.
+                </div>
+              </label>
+            )}
+
+            {/* What gets stored — so the user knows exactly what metadata the catalogue keeps */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">What we pull out and store</div>
+              <div className="flex flex-wrap gap-1.5">
+                {CAPTURE_FIELDS.map((f) => (
+                  <span key={f} className="text-[11px] bg-muted/60 border rounded px-1.5 py-0.5">{f}</span>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-md bg-success/10 border border-success/30 px-3 py-2.5 text-xs">
               <div className="font-semibold text-success mb-1">What happens next</div>
               <p className="text-muted-foreground leading-relaxed">
-                Fields extracted in seconds. Property card appears in your catalogue. Ad copy for Meta, Google, and Portal drafted on the next page.
+                Fields extracted in seconds and saved to your catalogue. Anything unclear is flagged for a quick review instead of guessed. Then you can draft Meta, Google, and Portal ads for it on the next page.
               </p>
             </div>
           </div>

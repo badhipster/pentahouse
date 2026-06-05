@@ -176,7 +176,7 @@ function PropertyDetail() {
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Three platform-specific ad copies for{' '}
-                <span className="font-medium text-foreground">{property.project_name}</span>, with audience and projected CPL for each.
+                <span className="font-medium text-foreground">{property.project_name}</span>, with audience and projected cost per lead for each.
               </p>
             </div>
             <div className="rounded-md border bg-muted/30 p-4">

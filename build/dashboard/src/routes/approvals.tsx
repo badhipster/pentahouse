@@ -22,7 +22,7 @@ export const Route = createFileRoute('/approvals')({
   head: () => ({
     meta: [
       { title: 'Approvals — Pentahouse' },
-      { name: 'description', content: 'Review and approve outbound buyer messages drafted by the Nurture Agent.' },
+      { name: 'description', content: 'Review and approve suggested messages before they go to buyers.' },
     ],
   }),
   component: Approvals,
@@ -257,7 +257,7 @@ function Approvals() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">WhatsApp preview · to {focusedLead.name}</div>
                   <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 text-[10px] uppercase tracking-wider font-medium">
-                    <Sparkles className="size-2.5" /> Drafted by Nurture Agent · Gemini 2.5 Flash
+                    <Sparkles className="size-2.5" /> Suggested reply
                   </div>
                 </div>
                 <div
@@ -301,7 +301,7 @@ function Approvals() {
                   </SelectContent>
                 </Select>
                 <Textarea
-                  placeholder="Optional notes for the Nurture Agent…"
+                  placeholder="Optional note — what wasn't right?…"
                   value={rejectNotes}
                   onChange={(e) => setRejectNotes(e.target.value)}
                   rows={3}
