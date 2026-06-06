@@ -40,6 +40,11 @@ tmp/
 *.tmp
 *.bak
 
+# Office lock files
+~$*.pptx
+~$*.docx
+~$*.xlsx
+
 # Screenshots (you may want to keep some — uncomment to track)
 screenshots/
 
