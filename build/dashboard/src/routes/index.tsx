@@ -223,14 +223,12 @@ function CommandCenter() {
               }
               subtitle={`Yesterday: ${k.leads_yesterday}`}
             />
-            <Link to="/approvals" className="block">
-              <KpiCard
-                label="Messages waiting for you"
-                value={k.pending_approvals}
-                subtitle={k.pending_approvals > 0 ? 'Open Messages to send →' : 'Queue empty.'}
-                tone={k.pending_approvals > 0 ? 'warning' : 'default'}
-              />
-            </Link>
+            <KpiCard
+              label="Escalations for you"
+              value={escalations.length}
+              subtitle={escalations.length > 0 ? 'High-value & low-confidence leads — your call.' : 'Nothing escalated. Reps are handling the rest.'}
+              tone={escalations.length > 0 ? 'warning' : 'default'}
+            />
             <KpiCard
               label="Bookings this week"
               value={<><span>{k.bookings_30d}</span></>}
@@ -285,7 +283,7 @@ function CommandCenter() {
       {/* Sales-floor feed + escalations — not relevant to marketing, hidden for that persona */}
       {role !== 'marketing' && (
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" data-anim="rise" data-stagger="3">
-        <Card className="lg:col-span-3 p-0 overflow-hidden">
+        <Card className={cn('p-0 overflow-hidden', role === 'sales_rep' ? 'lg:col-span-5' : 'lg:col-span-3')}>
           <div className="px-5 py-4 border-b flex items-center justify-between">
             <div>
               <div className="eyebrow">Live wire</div>
@@ -335,6 +333,8 @@ function CommandCenter() {
           </ScrollArea>
         </Card>
 
+        {/* Escalations are a Sales Head responsibility — hidden for reps */}
+        {role !== 'sales_rep' && (
         <Card className="lg:col-span-2 p-0 overflow-hidden">
           <div className="px-5 py-4 border-b">
             <div className="eyebrow">Manager call</div>
@@ -379,6 +379,7 @@ function CommandCenter() {
             })}
           </div>
         </Card>
+        )}
       </div>
       )}
 

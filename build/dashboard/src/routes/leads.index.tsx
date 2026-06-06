@@ -145,8 +145,10 @@ function LeadsIndex() {
       {leads.length === 0 ? (
         <EmptyState
           icon={<Users className="size-12" />}
-          title="No leads in this view"
-          hint="Try clearing filters."
+          title={role === 'sales_rep' && scopedQueue.length === 0 ? 'No leads assigned to you yet' : 'No leads in this view'}
+          hint={role === 'sales_rep' && scopedQueue.length === 0
+            ? 'Your sales head assigns leads to you. Once assigned, each one appears here with its AI score and recommended next step.'
+            : 'Try clearing filters.'}
         />
       ) : view === 'kanban' ? (
         <DndContext
@@ -156,7 +158,7 @@ function LeadsIndex() {
           onDragCancel={() => setActiveId(null)}
         >
           <div className="flex gap-3 overflow-x-auto pb-3">
-            {STAGES.map((stage) => {
+            {STAGES.filter((s) => s !== 'Booked' && s !== 'Lost').map((stage) => {
               const items = leads.filter((l) => l.stage === stage);
               return <KanbanColumn key={stage} stage={stage} items={items} />;
             })}
@@ -319,6 +321,12 @@ const CTA_TONE_CLS: Record<StageCta['tone'], string> = {
 function LeadCard({ lead, dragging }: { lead: any; dragging?: boolean }) {
   const heat = heatFor(lead.urgency_score ?? 0);
   const cta = ctaForStage(lead.stage, lead.recommended_action);
+  // Build a one-line intent summary: 3BHK · 1.2Cr · Hinjewadi
+  const intentBits = [
+    lead.preferred_config,
+    lead.budget_lakhs ? formatLakhs(lead.budget_lakhs) : null,
+    (lead as any).preferred_locality || lead.preferred_city,
+  ].filter(Boolean);
   return (
     <Link to="/leads/$id" params={{ id: lead.lead_id }} onClick={(e) => dragging && e.preventDefault()}>
       <Card className={cn(
@@ -326,22 +334,38 @@ function LeadCard({ lead, dragging }: { lead: any; dragging?: boolean }) {
         heat.cardCls,
         dragging && 'shadow-lg ring-2 ring-primary'
       )}>
+        {/* Name + heat icon */}
         <div className="flex items-start justify-between gap-2">
-          <div className="font-semibold text-base leading-tight">{lead.name}</div>
-          <span className="text-base shrink-0" title={heat.label}>{heat.icon}</span>
+          <div className="font-semibold text-[15px] leading-tight truncate">{lead.name}</div>
+          <span className="text-lg shrink-0 leading-none" title={heat.label} aria-label={heat.label}>{heat.icon}</span>
         </div>
-        <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">{maskPhone(lead.phone)} · {lead.source}</div>
+
+        {/* Phone (full, not masked — the rep needs to call) + source */}
+        <div className="text-[11.5px] text-muted-foreground tabular-nums mt-1 truncate">
+          {lead.phone || '—'} · {lead.source || 'Direct'}
+        </div>
+
+        {/* What they want — quick context */}
+        {intentBits.length > 0 && (
+          <div className="text-[12px] text-foreground/80 mt-1.5 truncate">
+            {intentBits.join(' · ')}
+          </div>
+        )}
+
+        {/* Scores */}
         <div className="mt-2.5 space-y-1">
           <ScoreBar label="Match" value={lead.fit_score} tone="emerald" />
           <ScoreBar label="Heat" value={lead.urgency_score} tone="indigo" />
         </div>
+
+        {/* CTA — the next action */}
         <div className={cn(
-          'mt-3 px-2.5 py-1.5 text-xs font-medium rounded text-center',
+          'mt-3 px-2.5 py-1.5 text-[12px] font-medium rounded text-center',
           CTA_TONE_CLS[cta.tone]
         )}>
           {cta.tone === 'win' ? '🎉 ' : ''}{cta.label}
         </div>
-        <div className="mt-1.5 text-[10px] text-muted-foreground">{relativeTime(lead.created_at)}</div>
+        <div className="mt-1.5 text-[10px] text-muted-foreground tabular-nums">{relativeTime(lead.created_at)}</div>
       </Card>
     </Link>
   );

@@ -1,0 +1,43 @@
+%% Pentahouse — end-to-end user flow across the five agents
+flowchart TD
+  subgraph SUPPLY["Supply side · prepared ahead of time"]
+    LA["Listing Agent<br/>syncs &amp; verifies inventory"] --> INV[("Inventory + embeddings")]
+    AD["Ad Agent<br/>drafts Meta / Google / Portal creative"]
+  end
+
+  AD --> A["Buyer sees the ad or portal listing"]
+  A --> B["Lead form captured<br/>partial details"]
+  B --> C["Meta Lead Ingest<br/>HMAC verify"]
+  C --> D{{"Lead Agent"}}
+  INV --> D
+
+  D --> E["Normalize intent<br/>any form into one model"]
+  E --> F["RAG match inventory<br/>Gemini embeddings + pgvector"]
+  F --> G["Score: Fit · Urgency · Visit-readiness<br/>+ confidence"]
+  G --> H{"Enough intent to act?"}
+
+  H -- "Purpose missing / thin data" --> I["Nurture Agent drafts<br/>gap-fill question"]
+  H -- "Hot &amp; complete" --> J["Nurture Agent drafts<br/>site-visit invite"]
+  H -- "VIP budget / low confidence" --> K["Escalate to Sales Head"]
+
+  I --> L{"Manager approval gate"}
+  J --> L
+  K --> L
+  L -- "Approve / Edit" --> M["Twilio sends WhatsApp"]
+  L -- "Reject" --> RJ["Reason logged as feedback"]
+
+  M --> O["Buyer replies"]
+  O --> P["Extract answer<br/>fill gaps · re-score"]
+  P --> H
+
+  M --> Q["Site visit scheduled<br/>Google Calendar + reminders"]
+  Q --> R{{"Conversion Agent"}}
+  R --> S["Log outcome<br/>objections + sentiment"]
+  S --> T{"Booked?"}
+  T -- "Yes" --> U["Booking + source attribution"]
+  T -- "No" --> V["Follow-up / long-term nurture"]
+
+  U --> W[("Feedback loop<br/>outcomes to scoring &amp; spend")]
+  V --> W
+  RJ --> W
+  W -.-> D
